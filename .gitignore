@@ -1,0 +1,11 @@
+# Hobyd pilot repo
+node_modules/
+.next/
+out/
+.env.local
+.env*.local
+.superpowers/
+.worktrees/
+graphify-out/
+raw/media/
+*.tsbuildinfo
