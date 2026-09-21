@@ -5,7 +5,7 @@
 // the fixture swaps for the Snap embed — the webhook route already
 // handles real notify.
 "use client";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 
 // Mirrors PAYMENT_WINDOW_SEC in .env.example (300 = 5:00). Server env is not
 // NEXT_PUBLIC_, so the client cannot read it; keep in sync with the example.
@@ -43,8 +43,10 @@ export default function PayPage({
   const [now, setNow] = useState(() => Date.now());
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const expireFired = useRef(false);
 
   useEffect(() => {
+    expireFired.current = false;
     fetch("/api/orders")
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: Order[]) => {
@@ -58,6 +60,21 @@ export default function PayPage({
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Fire the pending→expired writer once when the window lapses. Depends on
+  // the ticking clock: `order` alone never changes at the zero crossing.
+  useEffect(() => {
+    if (!order || order.status !== "pending" || expireFired.current) return;
+    if (msLeft(order, now) > 0) return;
+    expireFired.current = true;
+    fetch(`/api/orders/${order.id}/expire`, { method: "POST" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (body?.expired)
+          setOrder((o) => (o ? { ...o, status: "expired" } : o));
+      })
+      .catch(() => {});
+  }, [order, now]);
 
   const confirm = async () => {
     if (!order) return;
