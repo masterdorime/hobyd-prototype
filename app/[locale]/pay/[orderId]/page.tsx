@@ -4,6 +4,9 @@
 // timeout state with relist note. When the Midtrans client key is live,
 // the fixture swaps for the Snap embed — the webhook route already
 // handles real notify.
+// Task 11 restyle (visual-only): heavier material card, framed QR,
+// tabular countdown, pressable confirm, confirm errors announced with
+// role=alert (a11y). All state, timers, writers, and branches untouched.
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -108,7 +111,7 @@ export default function PayPage({
   if (!order)
     return (
       <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t("paymentNotFound")}</h1>
+        <h1 className="display text-2xl font-bold sm:text-3xl">{t("paymentNotFound")}</h1>
         <p className="mt-4 text-sm opacity-70">{t("paymentNotFoundNote")}</p>
       </main>
     );
@@ -116,7 +119,7 @@ export default function PayPage({
   if (order.status === "paid" || order.paid_at)
     return (
       <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t("paymentConfirmed")}</h1>
+        <h1 className="display text-2xl font-bold sm:text-3xl">{t("paymentConfirmed")}</h1>
         <p className="mt-4 text-sm opacity-70">
           Order {order.id} {t("paidNote")}
         </p>
@@ -127,7 +130,7 @@ export default function PayPage({
   if (order.status !== "pending" || left <= 0)
     return (
       <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
+        <h1 className="display text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
         <p className="mt-4 text-sm opacity-70">
           Order {order.id}: {t("expiredNote")}
         </p>
@@ -138,11 +141,11 @@ export default function PayPage({
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
       <p className="text-sm uppercase tracking-wide opacity-60">{t("pay")}</p>
-      <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
-      <section className="mt-6 flex flex-col gap-2 rounded-lg border p-4 sm:p-6">
+      <h1 className="display mt-1 text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
+      <section className="mt-6 flex flex-col gap-2 rounded-2xl border border-white/10 bg-overlay p-4 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-6">
         <p className="text-sm">Order {order.id}</p>
         <p className="text-sm opacity-80">Item {order.item_id}</p>
-        <p className="text-sm tabular-nums">
+        <p className="tnum text-sm">
           {t("payWithin")}: {fmt(left)}
         </p>
         {/* Sandbox QR fixture — swap for the Midtrans Snap embed when live. */}
@@ -151,16 +154,20 @@ export default function PayPage({
           alt="Sandbox QRIS code"
           width={240}
           height={240}
-          className="h-auto w-full max-w-[240px]"
+          className="h-auto w-full max-w-[240px] rounded-xl bg-white p-3"
         />
         <button
           onClick={confirm}
           disabled={confirming}
-          className="mt-2 rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="pressable mt-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50"
         >
           {confirming ? t("confirming") : t("paidConfirm")}
         </button>
-        {confirmError && <p className="text-sm text-red-600">{confirmError}</p>}
+        {confirmError && (
+          <p role="alert" className="text-sm text-red-400">
+            {confirmError}
+          </p>
+        )}
       </section>
     </main>
   );

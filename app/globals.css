@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --accent: #fbbf24;
 }
 
 @theme inline {
@@ -12,15 +13,116 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Apple-grade dark shell tokens (Tailwind v4): canvas, layered surfaces,
+   one amber accent. Utilities used below: bg-canvas, text-accent, etc. */
+@theme {
+  --color-canvas: #09090b;
+  --color-raised: #131316;
+  --color-overlay: #1c1c21;
+  --color-accent: #fbbf24;
+  --color-accent-ink: #09090b;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Arial,
+    Helvetica, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display headings: tight leading + negative tracking. */
+.display {
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Tabular numerals for prices and countdowns. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tactile press feedback on interactive controls. */
+.pressable:active {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+/* Translucent chrome: content scrolls under a blurred, saturated bar.
+   The two backdrop-filter declarations live in separate @supports rules
+   so the minifier keeps both (unprefixed for Firefox, -webkit for Safari). */
+.chrome-surface {
+  background: rgba(9, 9, 11, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .chrome-surface {
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .chrome-surface {
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(251, 191, 36, 0.35);
+}
+
+/* Reduced motion: kill springs/slides. Motion values are also gated in
+   JS (MotionConfig reducedMotion="user" + useEnter); this covers CSS. */
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active {
+    transform: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Reduced transparency: chrome goes solid. */
+@media (prefers-reduced-transparency: reduce) {
+  .chrome-surface {
+    background: #0a0a0c;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      backdrop-filter: none;
+    }
+  }
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      -webkit-backdrop-filter: none;
+    }
+  }
+}
+
+/* Forced contrast: solid chrome + explicit borders. */
+@media (prefers-contrast: more) {
+  .chrome-surface {
+    background: #000;
+    border-bottom: 1px solid #fff;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      backdrop-filter: none;
+    }
+  }
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      -webkit-backdrop-filter: none;
+    }
+  }
 }

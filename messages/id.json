@@ -31,5 +31,6 @@
   "email": "Surel",
   "password": "Kata sandi",
   "signin": "Masuk",
-  "signup": "Daftar"
+  "signup": "Daftar",
+  "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }

@@ -14,6 +14,7 @@
     "livekit-client": "^2.22.3",
     "livekit-server-sdk": "^2.19.1",
     "midtrans-client": "^1.4.3",
+    "motion": "^13.4.0",
     "next": "16.3.5",
     "next-intl": "^4.14.5",
     "react": "19.2.8",

@@ -1,4 +1,8 @@
 // app/[locale]/live/[roomId]/page.tsx — watch + bid + countdown + closer
+// Task 11 restyle (visual-only): dark cards, tabular countdown that turns
+// amber under 10s (the number itself is never animated), pressable bid
+// button via BidForm, error announced with role=alert. All timers, closer
+// logic, subscriptions, and handlers are untouched.
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -98,6 +102,7 @@ export default function LivePage({
   };
 
   const left = active ? msLeft(active.ends_at, now) : 0;
+  const urgent = active !== null && left <= 10_000;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
@@ -111,7 +116,7 @@ export default function LivePage({
                 <li key={i.id}>
                   <button
                     onClick={() => setActiveId(i.id)}
-                    className="w-full rounded border px-3 py-2 text-left text-sm"
+                    className="pressable w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm backdrop-blur-md"
                   >
                     {i.title} ({i.status})
                   </button>
@@ -123,32 +128,38 @@ export default function LivePage({
         <section className="min-w-0">
           {!active && <p className="text-sm opacity-70">{t("waiting")}</p>}
           {active && (
-            <div className="flex flex-col gap-3">
-              <h1 className="text-xl font-bold sm:text-2xl">{active.title}</h1>
+            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md sm:p-5">
+              <h1 className="display text-xl font-bold sm:text-2xl">{active.title}</h1>
               {active.img_url && (
                 <img
                   src={active.img_url}
                   alt={active.title}
-                  className="h-auto w-full rounded object-cover"
+                  className="h-auto w-full rounded-xl object-cover"
                 />
               )}
-              <p className="text-lg">
+              <p className="tnum text-lg">
                 {t("current")}: Rp{active.current_price.toLocaleString("id-ID")}
               </p>
-              <p className="text-sm tabular-nums opacity-80">
+              <p
+                className={`tnum text-sm opacity-80 ${urgent ? "font-semibold text-accent opacity-100" : ""}`}
+              >
                 {t("endsIn")}: {Math.floor(left / 1000)} {t("seconds")}
               </p>
               {active.status === "closed" ? (
                 <Link
                   href={`/${locale}/win/${active.id}`}
-                  className="inline-block rounded bg-black px-4 py-2 text-sm text-white"
+                  className="pressable inline-block rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink"
                 >
                   {t("seeResult")}
                 </Link>
               ) : (
                 <BidForm current={active.current_price} onBid={placeBid} />
               )}
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && (
+                <p role="alert" className="text-sm text-red-400">
+                  {error}
+                </p>
+              )}
               <BidFeed itemId={active.id} />
             </div>
           )}
