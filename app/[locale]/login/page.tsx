@@ -12,6 +12,12 @@ import { browserDb } from "@/lib/supabase/client";
 
 export const loginTarget = (locale: string) => `/${locale}`;
 
+export function toErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  return "Unknown error";
+}
+
 export default function Login({
   params,
 }: {
@@ -25,13 +31,17 @@ export default function Login({
   const [err, setErr] = useState<string | null>(null);
   async function go(mode: "in" | "up") {
     setErr(null);
-    const db = browserDb();
-    const { error } =
-      mode === "in"
-        ? await db.auth.signInWithPassword({ email, password })
-        : await db.auth.signUp({ email, password });
-    if (error) setErr(error.message);
-    else router.push(loginTarget(locale));
+    try {
+      const db = browserDb();
+      const { error } =
+        mode === "in"
+          ? await db.auth.signInWithPassword({ email, password })
+          : await db.auth.signUp({ email, password });
+      if (error) setErr(error.message);
+      else router.push(loginTarget(locale));
+    } catch (e) {
+      setErr(toErrorMessage(e));
+    }
   }
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col items-center px-4 py-10 sm:px-6">
