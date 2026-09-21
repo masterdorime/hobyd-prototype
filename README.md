@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HOBYD — Live Auction Pilot MVP
 
-## Getting Started
+Live-auction pilot: sellers stream via LiveKit, buyers bid in realtime
+(Supabase), winners pay via QRIS (Midtrans sandbox). UI in Indonesian and
+English (`/id`, `/en`), mobile-first responsive.
 
-First, run the development server:
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # fill all 12 values — see docs/SETUP.md §6
+npm install
+npm run dev                  # http://localhost:3000/id
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Full setup (Supabase SQL apply + Storage + Auth, LiveKit Cloud, Midtrans
+sandbox + webhook URL, all env values and where to get each one, post-deploy
+seed + acceptance): **[docs/SETUP.md](docs/SETUP.md)**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push branch `hobyd-mvp` to GitHub.
+2. [vercel.com/new](https://vercel.com/new) → Import repo (Next.js preset).
+3. Set all 12 env vars from `.env.example` (Production) — names + sources in docs/SETUP.md §6.
+4. Deploy, then set the Midtrans notification URL to
+   `https://<your-app>.vercel.app/api/orders/webhook`.
 
-## Learn More
+```bash
+npx vercel --prod            # or dashboard import (see docs/SETUP.md §5)
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Verify
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npx vitest run     # unit suite (must be ALL PASS)
+npx tsc --noEmit   # types clean
+npx next build     # production build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Queued live verifications (need backends — not runnable without secrets):
+Supabase `schema.sql` apply incl. `place_bid`/`close_item` + RLS
+no-client-writes probe (`docs/SETUP.md` §1.3), and the Task 8 acceptance run
+against the prod URL (`docs/SETUP.md` §8: seller listing, bids, last-10s
+extend, cap/429/double-close checks, QR 5:00, mock-confirm, expiry, ID+EN
+toggle, two-client race smoke).
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Note: orders `expired` is terminal — an unpaid order stays `expired` and the
+seller relists as a new item; `cancelled` is reserved for explicit manual
+seller cancel.
