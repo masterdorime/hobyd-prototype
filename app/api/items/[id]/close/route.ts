@@ -4,27 +4,38 @@ import { adminDb } from "@/lib/supabase/admin";
 export function shouldClose(o: { status: string; endsAtMs: number; nowMs: number }) {
   return o.status !== "closed" && o.nowMs > o.endsAtMs;
 }
+
+function isUuid(v: unknown): v is string {
+  return typeof v === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+type CloseItemResult =
+  | { ok: true; noop: true }
+  | { ok: true; closed: true; winner: string | null }
+  | { ok: false; error: string };
+
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   // NOTE: brief sketched `params` as a plain object, but per this repo's
   // Next.js docs (route.js reference: "params: a promise ... v15.0.0-RC")
   // params is a Promise in Next 15+ — hence `await`. `await` also accepts a
   // plain object, so both shapes work.
   const { id } = await ctx.params;
+  // Preserve contract: malformed ids read as "not found", not a 500.
+  if (!isUuid(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const db = adminDb();
-  const { data: item } = await db.from("items").select("*").eq("id", id).single();
-  if (!item) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  if (!shouldClose({ status: item.status, endsAtMs: new Date(item.ends_at).getTime(), nowMs: Date.now() }))
-    return NextResponse.json({ noop: true });
-  const { data: top } = await db.from("bids").select("bidder,amount")
-    .eq("item_id", id).order("amount", { ascending: false }).order("created_at").limit(1);
-  if (!top?.[0]) {
-    await db.from("items").update({ status: "closed" }).eq("id", id);
-    return NextResponse.json({ closed: true, winner: null });
+  // C3: ONE atomic transaction — row lock → re-check shouldClose →
+  // winner select → close + order upsert all inside close_item().
+  const { data, error } = await db.rpc("close_item", { p_item_id: id });
+  if (error || !data || typeof data !== "object")
+    return NextResponse.json({ error: "close_failed" }, { status: 500 });
+  const result = data as CloseItemResult;
+  if (!result.ok) {
+    if (result.error === "not_found")
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    return NextResponse.json({ error: "close_failed" }, { status: 500 });
   }
-  await db.from("items").update({ status: "closed", winner: top[0].bidder, current_price: top[0].amount }).eq("id", id);
-  await db.from("orders").upsert(
-    { item_id: id, winner: top[0].bidder, status: "pending" },
-    { onConflict: "item_id", ignoreDuplicates: true },
-  );
-  return NextResponse.json({ closed: true, winner: top[0].bidder });
+  if ("closed" in result && result.closed)
+    return NextResponse.json({ closed: true, winner: result.winner ?? null });
+  return NextResponse.json({ noop: true });
 }
