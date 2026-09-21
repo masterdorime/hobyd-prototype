@@ -26,5 +26,10 @@
   "paymentNotFound": "Payment not found",
   "paymentNotFoundNote": "This order does not exist or you are not its winner.",
   "loadingPayment": "Loading payment…",
-  "winner": "Winner"
+  "winner": "Winner",
+  "login": "Log in",
+  "email": "Email",
+  "password": "Password",
+  "signin": "Sign in",
+  "signup": "Sign up"
 }

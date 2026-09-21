@@ -26,5 +26,10 @@
   "paymentNotFound": "Pembayaran tidak ditemukan",
   "paymentNotFoundNote": "Order ini tidak ada atau kamu bukan pemenangnya.",
   "loadingPayment": "Memuat pembayaran…",
-  "winner": "Pemenang"
+  "winner": "Pemenang",
+  "login": "Masuk",
+  "email": "Surel",
+  "password": "Kata sandi",
+  "signin": "Masuk",
+  "signup": "Daftar"
 }
