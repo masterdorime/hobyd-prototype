@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Room } from "livekit-client";
+import { Room, Track } from "livekit-client";
 export function LiveVideo({ roomId }: { roomId: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [down, setDown] = useState(false);
@@ -8,9 +8,13 @@ export function LiveVideo({ roomId }: { roomId: string }) {
     let room: Room | null = null;
     (async () => {
       try {
-        const t = await fetch(`/api/livekit-token?roomId=${roomId}`).then((r) => r.json());
+        const t = await fetch(`/api/livekit-token?roomId=${encodeURIComponent(roomId)}`).then((r) => r.json());
         room = new Room();
         room.on("disconnected", () => setDown(true));
+        room.on("trackSubscribed", (track) => {
+          if (track.kind === Track.Kind.Video && ref.current)
+            ref.current.appendChild(track.attach());
+        });
         await room.connect(t.url, t.token);
         room.remoteParticipants.forEach((p) =>
           p.videoTrackPublications.forEach((pub) => pub.track && ref.current?.appendChild(pub.track.attach())));
