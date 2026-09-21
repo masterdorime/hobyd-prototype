@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Room, Track } from "livekit-client";
 export function LiveVideo({ roomId }: { roomId: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const t = useTranslations();
   const [down, setDown] = useState(false);
   useEffect(() => {
     let room: Room | null = null;
@@ -22,5 +24,9 @@ export function LiveVideo({ roomId }: { roomId: string }) {
     })();
     return () => { room?.disconnect(); };
   }, [roomId]);
-  return <div ref={ref}>{down && <p>Bidding stays available — reconnecting video…</p>}</div>;
+  return (
+    <div ref={ref} className="aspect-video w-full overflow-hidden rounded-lg bg-black [&_video]:h-full [&_video]:w-full">
+      {down && <p className="p-4 text-sm text-white">{t("reconnecting")}</p>}
+    </div>
+  );
 }

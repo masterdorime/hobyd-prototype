@@ -6,6 +6,7 @@
 // handles real notify.
 "use client";
 import { use, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 // Mirrors PAYMENT_WINDOW_SEC in .env.example (300 = 5:00). Server env is not
 // NEXT_PUBLIC_, so the client cannot read it; keep in sync with the example.
@@ -38,6 +39,7 @@ export default function PayPage({
   params: Promise<{ locale: string; orderId: string }>;
 }) {
   const { orderId } = use(params);
+  const t = useTranslations();
   const [order, setOrder] = useState<Order | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -97,46 +99,68 @@ export default function PayPage({
     }
   };
 
-  if (!loaded) return <main><p>Loading payment…</p></main>;
+  if (!loaded)
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+        <p className="text-sm opacity-70">{t("loadingPayment")}</p>
+      </main>
+    );
   if (!order)
     return (
-      <main>
-        <h1>Payment not found</h1>
-        <p>This order does not exist or you are not its winner.</p>
+      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">{t("paymentNotFound")}</h1>
+        <p className="mt-4 text-sm opacity-70">{t("paymentNotFoundNote")}</p>
       </main>
     );
 
   if (order.status === "paid" || order.paid_at)
     return (
-      <main>
-        <h1>Payment confirmed</h1>
-        <p>Order {order.id} is paid. The seller will contact you for handover.</p>
+      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">{t("paymentConfirmed")}</h1>
+        <p className="mt-4 text-sm opacity-70">
+          Order {order.id} {t("paidNote")}
+        </p>
       </main>
     );
 
   const left = msLeft(order, now);
   if (order.status !== "pending" || left <= 0)
     return (
-      <main>
-        <h1>Payment window expired</h1>
-        <p>The 5:00 payment window for order {order.id} has passed.</p>
-        <p>The seller can relist this item as a new auction item — watch the lobby for its return.</p>
+      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
+        <p className="mt-4 text-sm opacity-70">
+          Order {order.id}: {t("expiredNote")}
+        </p>
+        <p className="mt-2 text-sm opacity-70">{t("relistNote")}</p>
       </main>
     );
 
   return (
-    <main>
-      <h1>Pay for your win</h1>
-      <section>
-        <p>Order {order.id}</p>
-        <p>Item {order.item_id}</p>
-        <p>Pay within: {fmt(left)}</p>
+    <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
+      <p className="text-sm uppercase tracking-wide opacity-60">{t("pay")}</p>
+      <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
+      <section className="mt-6 flex flex-col gap-2 rounded-lg border p-4 sm:p-6">
+        <p className="text-sm">Order {order.id}</p>
+        <p className="text-sm opacity-80">Item {order.item_id}</p>
+        <p className="text-sm tabular-nums">
+          {t("payWithin")}: {fmt(left)}
+        </p>
         {/* Sandbox QR fixture — swap for the Midtrans Snap embed when live. */}
-        <img src="/qris-sandbox.png" alt="Sandbox QRIS code" width={240} height={240} />
-        <button onClick={confirm} disabled={confirming}>
-          {confirming ? "Confirming…" : "I have paid (sandbox confirm)"}
+        <img
+          src="/qris-sandbox.png"
+          alt="Sandbox QRIS code"
+          width={240}
+          height={240}
+          className="h-auto w-full max-w-[240px]"
+        />
+        <button
+          onClick={confirm}
+          disabled={confirming}
+          className="mt-2 rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+        >
+          {confirming ? t("confirming") : t("paidConfirm")}
         </button>
-        {confirmError && <p>{confirmError}</p>}
+        {confirmError && <p className="text-sm text-red-600">{confirmError}</p>}
       </section>
     </main>
   );

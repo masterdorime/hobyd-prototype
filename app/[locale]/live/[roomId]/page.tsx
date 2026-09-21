@@ -2,6 +2,7 @@
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { LiveVideo } from "@/components/LiveVideo";
 import { BidFeed } from "@/components/BidFeed";
 import { BidForm } from "@/components/BidForm";
@@ -26,6 +27,7 @@ export default function LivePage({
   params: Promise<{ locale: string; roomId: string }>;
 }) {
   const { locale, roomId } = use(params);
+  const t = useTranslations();
   const [items, setItems] = useState<Item[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -98,35 +100,60 @@ export default function LivePage({
   const left = active ? msLeft(active.ends_at, now) : 0;
 
   return (
-    <main>
-      <LiveVideo roomId={roomId} />
-      {items.length > 1 && (
-        <ul>
-          {items.map((i) => (
-            <li key={i.id}>
-              <button onClick={() => setActiveId(i.id)}>
-                {i.title} ({i.status})
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!active && <p>Waiting for the next item…</p>}
-      {active && (
-        <section>
-          <h1>{active.title}</h1>
-          {active.img_url && <img src={active.img_url} alt={active.title} />}
-          <p>Current: Rp{active.current_price.toLocaleString("id-ID")}</p>
-          <p>Ends in: {Math.floor(left / 1000)}s</p>
-          {active.status === "closed" ? (
-            <Link href={`/${locale}/win/${active.id}`}>See result</Link>
-          ) : (
-            <BidForm current={active.current_price} onBid={placeBid} />
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+      {/* Mobile-first single column; desktop splits video | bidding 2-col. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="min-w-0">
+          <LiveVideo roomId={roomId} />
+          {items.length > 1 && (
+            <ul className="mt-4 flex flex-col gap-2">
+              {items.map((i) => (
+                <li key={i.id}>
+                  <button
+                    onClick={() => setActiveId(i.id)}
+                    className="w-full rounded border px-3 py-2 text-left text-sm"
+                  >
+                    {i.title} ({i.status})
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-          {error && <p>{error}</p>}
-          <BidFeed itemId={active.id} />
         </section>
-      )}
+        <section className="min-w-0">
+          {!active && <p className="text-sm opacity-70">{t("waiting")}</p>}
+          {active && (
+            <div className="flex flex-col gap-3">
+              <h1 className="text-xl font-bold sm:text-2xl">{active.title}</h1>
+              {active.img_url && (
+                <img
+                  src={active.img_url}
+                  alt={active.title}
+                  className="h-auto w-full rounded object-cover"
+                />
+              )}
+              <p className="text-lg">
+                {t("current")}: Rp{active.current_price.toLocaleString("id-ID")}
+              </p>
+              <p className="text-sm tabular-nums opacity-80">
+                {t("endsIn")}: {Math.floor(left / 1000)} {t("seconds")}
+              </p>
+              {active.status === "closed" ? (
+                <Link
+                  href={`/${locale}/win/${active.id}`}
+                  className="inline-block rounded bg-black px-4 py-2 text-sm text-white"
+                >
+                  {t("seeResult")}
+                </Link>
+              ) : (
+                <BidForm current={active.current_price} onBid={placeBid} />
+              )}
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <BidFeed itemId={active.id} />
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }

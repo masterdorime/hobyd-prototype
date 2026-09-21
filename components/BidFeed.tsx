@@ -14,5 +14,5 @@ export function BidFeed({ itemId }: { itemId: string }) {
       .subscribe();
     return () => { db.removeChannel(ch); };
   }, [itemId]);
-  return <ul>{bids.map((b, i) => <li key={i}>{b.bidder}: Rp{b.amount.toLocaleString("id-ID")}</li>)}</ul>;
+  return <ul className="mt-2 flex flex-col gap-1 text-sm">{bids.map((b, i) => <li key={i}>{b.bidder}: Rp{b.amount.toLocaleString("id-ID")}</li>)}</ul>;
 }
