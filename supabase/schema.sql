@@ -61,3 +61,10 @@ create policy "public read bids" on bids for select to anon, authenticated using
 create policy "own profile read" on profiles for select to authenticated using (auth.uid() = id);
 create policy "winner order read" on orders for select to authenticated using (auth.uid() = winner);
 -- No insert/update/delete policies for anon/authenticated: all writes go through service_role in Route Handlers.
+
+-- Task 4: per-item bid serialization. PostgREST cannot call pg_catalog
+-- functions directly, so expose a public wrapper around
+-- pg_advisory_xact_lock keyed by item id. Called best-effort from
+-- POST /api/bids (a missing function degrades to discrete queries).
+create or replace function lock_item(p_key text) returns void
+language sql as $$ select pg_advisory_xact_lock(hashtext(p_key)) $$;
