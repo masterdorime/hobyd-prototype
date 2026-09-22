@@ -117,7 +117,6 @@ export function BottomNav({ locale }: { locale: string }) {
             type="button"
             onClick={() => setAccountOpen((v) => !v)}
             aria-expanded={accountOpen}
-            aria-current={accountOpen ? "page" : undefined}
             className={itemCls(accountOpen)}
           >
             <span className="max-w-16 truncate">
