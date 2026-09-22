@@ -9,6 +9,7 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
   const t = useTranslations();
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   // Escape closes the end dialog (no POST) — escape hatch alongside
   // the Cancel button and backdrop click below.
@@ -33,6 +34,7 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
   async function end(mode: "settle" | "video_only") {
     if (busy) return;
     setBusy(true);
+    setFailed(false);
     const res = await fetch(`/api/rooms/${roomId}/end`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -40,8 +42,13 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
     });
     const body = await res.json().catch(() => null);
     setBusy(false);
-    setDialog(false);
-    if (res.ok && body?.ended) onChange("ended");
+    if (res.ok && body?.ended) {
+      setDialog(false);
+      onChange("ended");
+      return;
+    }
+    // Keep the dialog open on failure so the owner can retry.
+    setFailed(true);
   }
 
   if (roomStatus === "preview")
@@ -73,6 +80,7 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
               {t("videoOnly")}
             </button>
             <p className="-mt-2 text-xs opacity-70">{t("videoOnlyNote")}</p>
+            {failed && <p role="alert" className="text-sm text-red-400">{t("actionFailed")}</p>}
             <button onClick={() => setDialog(false)} disabled={busy}
               className="pressable rounded-xl border border-white/15 px-4 py-2 text-sm disabled:opacity-50">
               {t("cancel")}

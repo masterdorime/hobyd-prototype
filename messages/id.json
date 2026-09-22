@@ -50,5 +50,6 @@
   "topBids": "Bid Tertinggi",
   "noBidsYet": "Belum ada bid.",
   "rateLimited": "Pelan-pelan — tunggu sebentar.",
+  "actionFailed": "Terjadi kesalahan - coba lagi.",
   "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }
