@@ -193,3 +193,35 @@ $$;
 
 revoke all on function close_item(uuid) from public, anon, authenticated;
 grant all on function close_item(uuid) to service_role;
+
+-- 2026-09-22 livestream subsystem: open go-live, chat, leaderboard names.
+alter table rooms drop constraint if exists rooms_status_check;
+alter table rooms add constraint rooms_status_check
+  check (status in ('lobby','preview','live','ended'));
+alter table rooms add column if not exists owner_id uuid references auth.users(id) on delete cascade;
+
+create table if not exists chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
+  sender_key text not null,
+  nickname text not null check (char_length(nickname) between 1 and 24),
+  body text not null check (char_length(body) between 1 and 200),
+  created_at timestamptz not null default now()
+);
+create index if not exists chat_room_time_idx on chat_messages (room_id, created_at desc);
+create index if not exists chat_sender_time_idx on chat_messages (room_id, sender_key, created_at desc);
+
+alter table chat_messages enable row level security;
+drop policy if exists "public read chat" on chat_messages;
+create policy "public read chat" on chat_messages for select to anon, authenticated using (true);
+-- No write policies: inserts go through POST /api/chat with service_role.
+
+drop policy if exists "public read names" on profiles;
+create policy "public read names" on profiles for select to anon, authenticated using (true);
+-- Pilot note: exposes reputation alongside names; accepted for the leaderboard.
+
+do $$ begin
+  alter publication supabase_realtime add table chat_messages;
+exception when duplicate_object then null;
+end $$;

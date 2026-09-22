@@ -20,7 +20,11 @@ sandbox account, a Vercel account, Node 20+ and `npm` locally.
    read-only RLS policies (all writes go through the `service_role` key in
    Route Handlers — there are deliberately no insert/update/delete policies
    for `anon`/`authenticated`), and the atomic `place_bid()` / `close_item()`
-   functions (granted to `service_role` only).
+    functions (granted to `service_role` only).
+   Re-run the new `2026-09-22 livestream subsystem` section at the end of
+   `supabase/schema.sql` in the SQL editor (it is `if not exists`-safe),
+   then verify with `select * from chat_messages limit 1;` returning zero rows
+   without error.
 3. **Verify the apply** (live-DB check — queued verification from Tasks 1/4,
    do this now while you are here):
    - **Table Editor**: confirm tables `profiles`, `rooms`, `items`, `bids`,
