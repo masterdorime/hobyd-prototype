@@ -40,6 +40,7 @@
   "settleNote": "Active item closes, winner locks, order created.",
   "videoOnly": "End video only",
   "videoOnlyNote": "Video/chat stop, auction runs until timer ends.",
+  "cancel": "Cancel",
   "startingSoon": "Starting soon",
   "streamEnded": "Stream ended",
   "chatHint": "Write a message…",

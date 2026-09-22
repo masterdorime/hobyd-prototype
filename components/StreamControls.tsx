@@ -1,6 +1,6 @@
 // components/StreamControls.tsx — owner-only Start/End + end-mode dialog.
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
 
@@ -9,6 +9,17 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
   const t = useTranslations();
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState(false);
+
+  // Escape closes the end dialog (no POST) — escape hatch alongside
+  // the Cancel button and backdrop click below.
+  useEffect(() => {
+    if (!dialog) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) setDialog(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dialog, busy]);
 
   async function goLive() {
     if (busy) return;
@@ -48,8 +59,9 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
         {t("endStream")}
       </button>
       {dialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label={t("endTitle")}>
-          <NeuCard className="flex w-full max-w-sm flex-col gap-3 p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label={t("endTitle")}
+          onClick={() => { if (!busy) setDialog(false); }}>
+          <NeuCard className="flex w-full max-w-sm flex-col gap-3 p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">{t("endTitle")}</h2>
             <button onClick={() => end("settle")} disabled={busy}
               className="pressable rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50">
@@ -61,6 +73,10 @@ export function StreamControls({ roomId, roomStatus, activeItemId, onChange }:
               {t("videoOnly")}
             </button>
             <p className="-mt-2 text-xs opacity-70">{t("videoOnlyNote")}</p>
+            <button onClick={() => setDialog(false)} disabled={busy}
+              className="pressable rounded-xl border border-white/15 px-4 py-2 text-sm disabled:opacity-50">
+              {t("cancel")}
+            </button>
           </NeuCard>
         </div>
       )}
