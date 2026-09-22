@@ -15,9 +15,13 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { data: item } = await db.from("items").select("id,room_id,status,duration_sec").eq("id", id).single();
   if (!item) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const it = item as { room_id: string; status: string; duration_sec: number };
-  const { data: room } = await db.from("rooms").select("owner_id").eq("id", it.room_id).single();
+  const { data: room } = await db.from("rooms").select("owner_id,category").eq("id", it.room_id).single();
   if (!room || (room as { owner_id: string | null }).owner_id !== user.id)
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Server-side category gate (UI pick alone is not enforcement): an
+  // uncategorized room can never open bidding.
+  if ((room as { category: string | null }).category == null)
+    return NextResponse.json({ error: "illegal_transition" }, { status: 409 });
   if (it.status === "live" || it.status === "extended" || it.status === "ending")
     return NextResponse.json(item);
   if (it.status !== "lobby")

@@ -33,8 +33,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   const db = adminDb();
 
-  const { data: itemRow } = await db.from("items").select("auction_mode").eq("id", item_id).single();
-  const mode = (itemRow as { auction_mode?: string } | null)?.auction_mode === "hard" ? "hard" : "soft";
+  const { data: itemRow } = await db.from("items").select("id,room_id,auction_mode").eq("id", item_id).single();
+  const item = itemRow as { room_id?: string; auction_mode?: string } | null;
+  const mode = item?.auction_mode === "hard" ? "hard" : "soft";
+  // Server-side category gate: bids on items in uncategorized rooms are
+  // rejected before touching place_bid (auth → shape → item → category).
+  if (item?.room_id) {
+    const { data: roomRow } = await db.from("rooms").select("category").eq("id", item.room_id).single();
+    if (!roomRow || (roomRow as { category: string | null }).category == null)
+      return NextResponse.json({ error: "uncategorized" }, { status: 400 });
+  }
   // C1: ONE atomic transaction — advisory lock → row lock → validate →
   // rate-limit → insert → price/extension patch all inside place_bid().
   // nowMs is recomputed inside the txn (M1); the JS clock is not trusted.
