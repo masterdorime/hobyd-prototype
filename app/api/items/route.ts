@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/supabase/admin";
-import { requireUser, isSeller } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { BUCKET, itemImagePath, validateImageFile } from "@/lib/upload";
 
@@ -27,8 +27,8 @@ function isUploadFile(v: unknown): v is File {
 
 export async function POST(req: Request) {
   const user = await requireUser().catch(() => null);
-  if (!user || !isSeller(user.email))
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!user)
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   let input: { room_id: string; title: string; img_url: string; start_price: number };
   const ct = req.headers.get("content-type") ?? "";
