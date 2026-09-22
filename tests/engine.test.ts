@@ -13,6 +13,10 @@ test("6th last-second bid does not extend", () => {
   const d = decideExtension({ endsAtMs: 10_000, nowMs: 9_500, used: 5, max: 5 });
   expect(d.extend).toBe(false);
 });
+test("hard mode never extends even in window", () => {
+  expect(decideExtension({ endsAtMs: 10_000, nowMs: 9_500, used: 0, max: 5, mode: "hard" }).extend).toBe(false);
+  expect(decideExtension({ endsAtMs: 10_000, nowMs: 9_500, used: 0, max: 5, mode: "hard" }).newEndsAtMs).toBe(10_000);
+});
 test("two bids under 1s apart: second rejected", () => {
   expect(allowedByRate({ lastMs: 1000, nowMs: 2000 })).toBe(true);
   expect(allowedByRate({ lastMs: 1000, nowMs: 1000 })).toBe(false);

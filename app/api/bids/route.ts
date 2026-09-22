@@ -4,7 +4,8 @@ import { adminDb } from "@/lib/supabase/admin";
 import { requireUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 
-export function decideExtension(o: { endsAtMs: number; nowMs: number; used: number; max: number }) {
+export function decideExtension(o: { endsAtMs: number; nowMs: number; used: number; max: number; mode?: string }) {
+  if (o.mode === "hard") return { extend: false, newEndsAtMs: o.endsAtMs };
   const delta = o.endsAtMs - o.nowMs;
   const extend = delta >= 0 && delta < 10_000 && o.used < o.max;
   return { extend, newEndsAtMs: extend ? o.endsAtMs + 10_000 : o.endsAtMs };

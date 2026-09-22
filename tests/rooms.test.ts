@@ -15,12 +15,16 @@ test("all returns everything", () => {
   expect(filterRooms(rooms, "all")).toHaveLength(2);
 });
 
-test("pokemon matches tcg/charizard/pokemon titles", () => {
-  expect(filterRooms(rooms, "pokemon")).toEqual([rooms[0]]);
+test("tcg matches tcg/charizard/pokemon titles", () => {
+  expect(filterRooms(rooms, "tcg")).toEqual([rooms[0]]);
+});
+
+test("sneakers falls back to everything when no title matches", () => {
+  expect(filterRooms(rooms, "sneakers")).toHaveLength(2);
 });
 
 test("unknown category returns everything", () => {
-  expect(filterRooms(rooms, "sneakers")).toHaveLength(2);
+  expect(filterRooms(rooms, "diecast")).toHaveLength(2);
 });
 
 test("buildRoomRow opens a preview room for any signed-in user", () => {
