@@ -222,3 +222,9 @@ The lobby (`/id`) lists `lobby`+`live` rooms; the live page is
   implementation read consistently.)
 - Pay page shows "Result unavailable" → only the winner (or a seller via
   `?item_id=`) can view an order (Ruling R2); sign in as the winner.
+- **Pre-migration rooms have no owner.** Rooms created before the livestream
+  migration have `owner_id = null` (subscriber-only, unmanageable — no Go
+  Live / End controls). Assign an owner by id as an admin:
+  ```sql
+  update rooms set owner_id = '<auth-user-uuid>' where id = '<room-uuid>';
+  ```
