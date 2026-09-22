@@ -102,7 +102,9 @@ export default function LivePage({
     return () => { db.removeChannel(ch); };
   }, [roomId]);
 
-  const roomStatus = room?.status ?? "live";
+  // Loading sentinel until the room fetch resolves — avoids flashing the
+  // LIVE badge or mounting LiveVideo for a room that may be preview/ended.
+  const roomStatus = room?.status ?? "loading";
   const isOwner = !!me && !!room && me === room.owner_id;
 
   useEffect(() => {
@@ -153,7 +155,11 @@ export default function LivePage({
             </div>
           )}
           <div className="relative overflow-hidden rounded-2xl">
-            {roomStatus !== "live" ? (
+            {!room ? (
+              <div className="glass-panel flex h-64 items-center justify-center">
+                <p className="text-sm text-white/80">{t("waiting")}</p>
+              </div>
+            ) : roomStatus !== "live" ? (
               <div className="glass-panel flex h-64 items-center justify-center">
                 <p className="text-sm text-white/80">{t(roomStatus === "preview" ? "startingSoon" : "streamEnded")}</p>
               </div>
