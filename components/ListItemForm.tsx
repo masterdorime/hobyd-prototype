@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/ui";
 import { CameraCapture } from "@/components/CameraCapture";
 import { validateSellInput } from "@/lib/sell";
+import { clampDuration } from "@/lib/auction";
 import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
 
 export type ListedItem = {
@@ -43,7 +44,7 @@ export function ListItemForm({
   const [showCam, setShowCam] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const effDuration = custom === "" ? duration : Number(custom);
+  const effDuration = clampDuration(custom === "" ? duration : custom);
 
   useEffect(() => {
     if (!file) {
@@ -245,9 +246,8 @@ export function ListItemForm({
             placeholder={t("customSeconds")}
             onChange={(e) => setCustom(e.target.value)}
             onBlur={() => {
-              const n = Number(custom);
               if (!custom) return;
-              const clamped = Number.isFinite(n) ? Math.min(300, Math.max(10, Math.floor(n))) : 30;
+              const clamped = clampDuration(custom);
               setCustom(String(clamped));
               setDuration(clamped);
             }}

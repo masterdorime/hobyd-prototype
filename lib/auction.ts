@@ -37,3 +37,12 @@ export function validateListing(o: { mode: unknown; durationSec: unknown }): {
     return { ok: false, error: "invalid_duration" };
   return { ok: true };
 }
+
+// Custom-duration clamp shared by the sell page and the mid-stream list
+// form. Applied onBlur AND on submit (focus may still be in the field),
+// so raw values never reach the API.
+export function clampDuration(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 30;
+  return Math.min(300, Math.max(10, Math.floor(n)));
+}
