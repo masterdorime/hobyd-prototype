@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { MotionConfig } from "motion/react";
 import { LocaleToggle } from "@/components/LocaleToggle";
+import { BottomNav } from "@/components/BottomNav";
 import { browserDb } from "@/lib/supabase/client";
 
 export function Chrome({
@@ -82,52 +83,55 @@ export function Chrome({
               <span className="opacity-70">Live Auction</span>
             </Link>
             <div className="flex items-center gap-3">
-              <Link
-                href={`/${locale}/sell`}
-                className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
-              >
-                Sell
-              </Link>
-              {email && (
-                <button
-                  type="button"
-                  onClick={goLive}
-                  disabled={goingLive}
-                  className="pressable rounded-full bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-50"
-                >
-                  {t("goLive")}
-                </button>
-              )}
-              <LocaleToggle locale={locale} />
-              {email ? (
-                <span className="flex items-center gap-2">
-                  <span className="max-w-32 truncate text-sm opacity-70">
-                    {email}
-                  </span>
-                  <button
-                    onClick={signOut}
-                    className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
-                  >
-                    {t("signout")}
-                  </button>
-                </span>
-              ) : (
+              <div className="hidden items-center gap-3 md:flex">
                 <Link
-                  href={`/${locale}/login`}
+                  href={`/${locale}/sell`}
                   className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
                 >
-                  {t("login")}
+                  Sell
                 </Link>
-              )}
+                {email && (
+                  <button
+                    type="button"
+                    onClick={goLive}
+                    disabled={goingLive}
+                    className="pressable rounded-full bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-50"
+                  >
+                    {t("goLive")}
+                  </button>
+                )}
+                {email ? (
+                  <span className="flex items-center gap-2">
+                    <span className="max-w-32 truncate text-sm opacity-70">
+                      {email}
+                    </span>
+                    <button
+                      onClick={signOut}
+                      className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
+                    >
+                      {t("signout")}
+                    </button>
+                  </span>
+                ) : (
+                  <Link
+                    href={`/${locale}/login`}
+                    className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
+                  >
+                    {t("login")}
+                  </Link>
+                )}
+              </div>
+              <LocaleToggle locale={locale} />
             </div>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-6xl flex-1">{children}</div>
+        <div className="mx-auto w-full max-w-6xl flex-1 pb-20 md:pb-0">{children}</div>
         <footer className="mt-8 border-t border-white/10">
           <p className="mx-auto w-full max-w-6xl px-4 py-4 text-xs opacity-50 sm:px-6">
             {t("footerNote")}
           </p>
         </footer>
+        <BottomNav locale={locale} />
       </div>
     </MotionConfig>
   );
