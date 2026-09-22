@@ -31,13 +31,6 @@ export default function SellPage({
   const picker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/rooms")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => setRoomId(rows?.[0]?.id ?? null))
-      .catch(() => setRoomId(null));
-  }, []);
-
-  useEffect(() => {
     if (!file) {
       setPreview(null);
       return;
@@ -82,31 +75,24 @@ export default function SellPage({
     }
     setBusy(true);
     try {
-      let rid = roomId;
-      if (!rid) {
-        setStage("room");
-        const rr = await fetch("/api/rooms", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ title: "HOBYD Live" }),
-        });
-        if (!rr.ok) {
-          const body = await rr.json().catch(() => null);
-          setError(body?.error ?? "room_failed");
-          return;
-        }
-        const room = await rr.json();
-        if (!room?.id) {
-          setError("room_failed");
-          return;
-        }
-        rid = room.id;
-        setRoomId(rid);
+      setStage("room");
+      const rr = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+      if (!rr.ok) {
+        const body = await rr.json().catch(() => null);
+        setError(body?.error ?? "room_failed");
+        return;
       }
-      if (!rid) {
+      const room = await rr.json();
+      if (!room?.id) {
         setError("room_failed");
         return;
       }
+      const rid: string = room.id;
+      setRoomId(rid);
       setStage("upload");
       const fd = new FormData();
       fd.set("room_id", rid);
@@ -181,11 +167,11 @@ export default function SellPage({
               {error}
             </p>
           )}
-          {done && (
+          {done && roomId && (
             <p className="text-sm text-emerald-300">
               Listed.{" "}
               <Link href={`/${locale}/live/${roomId}`} className="underline">
-                Back to live
+                {t("goLive")}
               </Link>
             </p>
           )}

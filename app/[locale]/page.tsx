@@ -107,7 +107,7 @@ export default function LobbyPage({
                 <p className="font-semibold tracking-tight">{r.title}</p>
                 <Badge tone={toneFor(r.status)}>
                   {r.status === "live" && <span className="live-dot" />}
-                  {r.status}
+                  {r.status === "preview" ? t("startingSoon") : r.status}
                 </Badge>
                 <Link
                   href={`/${locale}/live/${r.id}`}

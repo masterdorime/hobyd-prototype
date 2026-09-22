@@ -9,6 +9,9 @@ import { useTranslations } from "next-intl";
 import { LiveVideo } from "@/components/LiveVideo";
 import { BidFeed } from "@/components/BidFeed";
 import { BidForm } from "@/components/BidForm";
+import { StreamControls } from "@/components/StreamControls";
+import { ChatPanel } from "@/components/ChatPanel";
+import { Leaderboard } from "@/components/Leaderboard";
 import { NeuCard } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CountUp } from "@/components/effects/CountUp";
@@ -45,6 +48,8 @@ export default function LivePage({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
+  const [room, setRoom] = useState<{ owner_id: string | null; status: string } | null>(null);
+  const [me, setMe] = useState<string | null>(null);
   const closeFired = useRef<Set<string>>(new Set());
 
   const active = items.find((i) => i.id === activeId) ?? null;
@@ -81,6 +86,24 @@ export default function LivePage({
       db.removeChannel(ch);
     };
   }, [activeId]);
+
+  useEffect(() => {
+    fetch(`/api/rooms/${encodeURIComponent(roomId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((row) => row && setRoom({ owner_id: row.owner_id ?? null, status: row.status }))
+      .catch(() => {});
+    browserDb().auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)).catch(() => setMe(null));
+    const db = browserDb();
+    const ch = db.channel(`room-${roomId}`)
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
+        (p) => setRoom((r) => r && { ...r, status: (p.new as { status: string }).status }))
+      .subscribe();
+    return () => { db.removeChannel(ch); };
+  }, [roomId]);
+
+  const roomStatus = room?.status ?? "live";
+  const isOwner = !!me && !!room && me === room.owner_id;
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -124,12 +147,25 @@ export default function LivePage({
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="min-w-0">
+          {isOwner && room && (
+            <div className="mb-3">
+              <StreamControls roomId={roomId} roomStatus={room.status} activeItemId={activeId} onChange={(s) => setRoom((r) => r && { ...r, status: s })} />
+            </div>
+          )}
           <div className="relative overflow-hidden rounded-2xl">
-            <LiveVideo roomId={roomId} />
+            {roomStatus !== "live" ? (
+              <div className="glass-panel flex h-64 items-center justify-center">
+                <p className="text-sm text-white/80">{t(roomStatus === "preview" ? "startingSoon" : "streamEnded")}</p>
+              </div>
+            ) : (
+              <LiveVideo roomId={roomId} />
+            )}
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-              <Badge tone="live">
-                <span className="live-dot" /> LIVE
-              </Badge>
+              {roomStatus === "live" && (
+                <Badge tone="live">
+                  <span className="live-dot" /> LIVE
+                </Badge>
+              )}
               {active && active.status !== "closed" && (
                 <span
                   className={cn(
@@ -209,7 +245,10 @@ export default function LivePage({
                   {t("seeResult")}
                 </Link>
               ) : (
-                <BidForm current={active.current_price} onBid={placeBid} />
+                <>
+                  <Leaderboard itemId={active.id} />
+                  <BidForm current={active.current_price} onBid={placeBid} />
+                </>
               )}
               {error && (
                 <p role="alert" className="text-sm text-red-400">
@@ -217,6 +256,7 @@ export default function LivePage({
                 </p>
               )}
               <BidFeed itemId={active.id} />
+              <ChatPanel roomId={roomId} roomStatus={roomStatus} />
             </NeuCard>
           )}
         </section>
