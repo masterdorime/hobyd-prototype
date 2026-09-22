@@ -61,5 +61,9 @@
   "retry": "Coba lagi",
   "mic": "Mic",
   "cam": "Kamera",
+  "addItem": "Tambah item",
+  "itemTitle": "Judul",
+  "itemPhoto": "Foto",
+  "itemPrice": "Harga awal (IDR)",
   "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }

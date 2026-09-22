@@ -12,6 +12,7 @@ import { BidForm } from "@/components/BidForm";
 import { StreamControls } from "@/components/StreamControls";
 import { ChatPanel } from "@/components/ChatPanel";
 import { Leaderboard } from "@/components/Leaderboard";
+import { ListItemForm } from "@/components/ListItemForm";
 import { NeuCard } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CountUp } from "@/components/effects/CountUp";
@@ -207,6 +208,17 @@ export default function LivePage({
                 </li>
               ))}
             </ul>
+          )}
+          {isOwner && room && roomStatus !== "ended" && (
+            <div className="mt-4">
+              <ListItemForm
+                roomId={roomId}
+                onListed={(item) => {
+                  setItems((cur) => [...cur, item]);
+                  setActiveId(item.id);
+                }}
+              />
+            </div>
           )}
         </section>
         <section className="min-w-0">

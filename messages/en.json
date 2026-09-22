@@ -61,5 +61,9 @@
   "retry": "Retry",
   "mic": "Mic",
   "cam": "Cam",
+  "addItem": "Add item",
+  "itemTitle": "Title",
+  "itemPhoto": "Photo",
+  "itemPrice": "Start price (IDR)",
   "footerNote": "HOBYD pilot demo — sandbox payments, no real money."
 }

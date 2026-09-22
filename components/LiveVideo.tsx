@@ -10,6 +10,7 @@ import {
   type LocalVideoTrack,
 } from "livekit-client";
 import { Badge } from "@/components/ui/badge";
+import { MicLevel } from "@/components/MicLevel";
 import { classifyMediaError, type MediaFailure } from "@/lib/media";
 import { cn } from "@/lib/ui";
 
@@ -26,6 +27,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
   const tracksRef = useRef<PreviewTracks | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
+  const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | null>(null);
   const [hasVideo, setHasVideo] = useState(true);
   const [hasAudio, setHasAudio] = useState(true);
   const [camOn, setCamOn] = useState(true);
@@ -45,13 +47,21 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
         if (cancelled) return;
         room = new Room();
         room.on("disconnected", () => { if (!cancelled) setDown(true); });
+        // NOTE: audio must be attached too — subscribing without attach
+        // meant remote mic audio arrived but never played (silent viewers).
         room.on("trackSubscribed", (track) => {
-          if (track.kind === Track.Kind.Video && ref.current)
+          if (!ref.current) return;
+          if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio)
             ref.current.appendChild(track.attach());
         });
         await room.connect(t.url, t.token);
         room.remoteParticipants.forEach((p) =>
-          p.videoTrackPublications.forEach((pub) => pub.track && ref.current?.appendChild(pub.track.attach())));
+          p.trackPublications.forEach((pub) => {
+            const tr = pub.track;
+            if (!tr || !ref.current) return;
+            if (tr.kind === Track.Kind.Video || tr.kind === Track.Kind.Audio)
+              ref.current.appendChild(tr.attach());
+          }));
       } catch { if (!cancelled) setDown(true); }
     })();
     return () => {
@@ -87,6 +97,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
         return;
       }
       tracksRef.current = { video: v, audio: a };
+      setAudioTrack(a);
       setHasVideo(!!v);
       setHasAudio(!!a);
       if (!v) setCamOn(false);
@@ -104,6 +115,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
       roomRef.current = null;
       const tr = tracksRef.current;
       tracksRef.current = null;
+      setAudioTrack(null);
       room?.disconnect();
       tr?.video?.stop();
       tr?.audio?.stop();
@@ -190,7 +202,9 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
           </button>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2">
+          <MicLevel track={audioTrack} />
+          <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={toggleCam}
@@ -225,6 +239,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
               {publishing ? t("publishing") : t("publishCam")}
             </button>
           )}
+          </div>
         </div>
       )}
       {down && <p className="text-sm text-white">{t("reconnecting")}</p>}
