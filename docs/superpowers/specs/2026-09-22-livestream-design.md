@@ -52,10 +52,11 @@ by Cloud on first join — no server-side room provisioning needed.
   `seller_name` stays as the display string.
 - New `chat_messages`: `id uuid pk`, `room_id uuid → rooms(id) cascade`,
   `user_id uuid → auth.users(id) nullable` (null = guest),
-  `nickname text not null check (char_length 1..24)`,
+  `sender_key text not null` (auth user id or guest IP — backs the
+  rate-limit check), `nickname text not null check (char_length 1..24)`,
   `body text not null check (char_length 1..200)`,
   `created_at timestamptz default now()`. Index
-  `(room_id, created_at desc)`.
+  `(room_id, created_at desc)` + `(room_id, sender_key, created_at desc)`.
 - RLS: `chat_messages` — public read to anon + authenticated; **no**
   write policies (writes via `POST /api/chat` with service_role, same
   as bids/items). `profiles` — add public-name read policy
@@ -95,7 +96,10 @@ by Cloud on first join — no server-side room provisioning needed.
 - `GET /api/rooms/[id]` (new) — public; returns one room incl.
   `owner_id` + `status` so the watch page can show owner controls.
 - `POST /api/rooms/[id]/go-live` (new) — owner-only (401/403/404
-  otherwise); `preview → live` via `canTransition`; returns room.
+  otherwise); `preview → live` via `canTransition`. Idempotent: a repeat
+  call when already `live` returns 200 with the current room (never 409),
+  so owner double-clicks are harmless; other illegal transitions → 409
+  `illegal_transition`.
 - `POST /api/rooms/[id]/end` (new) — owner-only; body
   `{ mode: "settle" | "video_only", item_id?: uuid }`. For `settle` the
   route verifies `item_id` belongs to room `id` (else 404 `not_found`).
@@ -111,6 +115,8 @@ by Cloud on first join — no server-side room provisioning needed.
   `CHAT_RATE_MS` → 429 `rate_limited`), inserts via service_role,
   returns the row. 400 `invalid`, 413-equivalent 400 `too_long`
   (keeps the repo's `{ error }` JSON contract; no new HTTP semantics).
+  Rejects with 403 `closed` when the room is `ended` (video_only end
+  stops chat).
 - `POST /api/items/[id]/close` — **unchanged** (still unauthenticated;
   safe because `close_item()` noops before `ends_at`).
 
@@ -122,10 +128,10 @@ by Cloud on first join — no server-side room provisioning needed.
   when `preview` (→ go-live, then LiveVideo publishes); **End Stream**
   button when `live` → `EndStreamDialog` (neu card modal, glass
   backdrop) with the two §1-option-2 choices → `POST end`.
-  Non-owners see nothing. Streamer publishes via the existing
-  `LiveVideo`; viewers subscribe — no `LiveVideo` changes except it
-  must tolerate `preview` (renders "starting soon" glass slate until
-  room flips `live`, driven by a rooms Realtime subscription).
+  Non-owners see nothing. The watch page renders a glass slate
+  (`startingSoon` / `streamEnded`) in the video slot until the room is
+  `live` and only mounts `LiveVideo` then; the streamer publishes via
+  the existing `LiveVideo`, viewers subscribe — no `LiveVideo` changes.
 - `components/ChatPanel.tsx` (all viewers incl. guests): nickname
   prompt on first send (localStorage `hobyd_nick`), message list
   (last 30, Realtime INSERT on `room_id`), input + send with inline
