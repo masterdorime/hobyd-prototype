@@ -94,6 +94,19 @@ body {
 
 /* Reduced transparency: chrome goes solid. */
 @media (prefers-reduced-transparency: reduce) {
+  .glass-panel {
+    background: #141417;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-panel {
+      backdrop-filter: none;
+    }
+  }
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .glass-panel {
+      -webkit-backdrop-filter: none;
+    }
+  }
   .chrome-surface {
     background: #0a0a0c;
   }
@@ -107,6 +120,56 @@ body {
       -webkit-backdrop-filter: none;
     }
   }
+}
+
+/* Hybrid material system: glass ONLY over live/video, neu ONLY on static cards.
+   Glass = translucent floating chrome; Neu = soft extruded dark plastic. */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.18);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .glass-panel {
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .glass-panel {
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+.neu-raised {
+  background: #131316;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow:
+    8px 8px 24px #050506,
+    -8px -8px 24px #1d1d22;
+}
+.neu-pressed {
+  background: #101013;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow:
+    inset 6px 6px 14px #050506,
+    inset -6px -6px 14px #1b1b20;
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  opacity: 0.6;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #f87171;
 }
 
 /* Forced contrast: solid chrome + explicit borders. */
