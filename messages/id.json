@@ -77,5 +77,14 @@
   "itemTitle": "Judul",
   "itemPhoto": "Foto",
   "itemPrice": "Harga awal (IDR)",
+  "auctionMode": "Mode lelang",
+  "softClose": "Perpanjangan otomatis",
+  "hardClose": "Mati mendadak",
+  "softNote": "Bid di detik terakhir memperpanjang jam.",
+  "hardNote": "Jam tidak pernah bergerak. Bid terakhir menang.",
+  "duration": "Durasi bid",
+  "customSeconds": "Detik kustom (10–300)",
+  "pickCategory": "Pilih kategori untuk membuka bidding.",
+  "categorySet": "Kategori tersimpan.",
   "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }

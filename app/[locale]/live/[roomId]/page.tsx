@@ -24,6 +24,7 @@ import {
   isUrgent,
 } from "@/lib/format";
 import { cn } from "@/lib/ui";
+import { CATEGORIES } from "@/lib/rooms";
 
 type Item = {
   id: string;
@@ -32,6 +33,7 @@ type Item = {
   current_price: number;
   ends_at: string;
   status: string;
+  auction_mode: string;
 };
 
 function msLeft(endsAt: string, now: number) {
@@ -50,9 +52,10 @@ export default function LivePage({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
-  const [room, setRoom] = useState<{ owner_id: string | null; status: string } | null>(null);
+  const [room, setRoom] = useState<{ owner_id: string | null; status: string; category: string | null } | null>(null);
   const [me, setMe] = useState<string | null>(null);
   const [armClose, setArmClose] = useState<string | null>(null);
+  const [catMsg, setCatMsg] = useState(false);
   const [acting, setActing] = useState(false);
   const closeFired = useRef<Set<string>>(new Set());
 
@@ -94,14 +97,18 @@ export default function LivePage({
   useEffect(() => {
     fetch(`/api/rooms/${encodeURIComponent(roomId)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((row) => row && setRoom({ owner_id: row.owner_id ?? null, status: row.status }))
+      .then((row) => row && setRoom({ owner_id: row.owner_id ?? null, status: row.status, category: row.category ?? null }))
       .catch(() => {});
     browserDb().auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)).catch(() => setMe(null));
     const db = browserDb();
     const ch = db.channel(`room-${roomId}`)
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
-        (p) => setRoom((r) => r && { ...r, status: (p.new as { status: string }).status }))
+        (p) => setRoom((r) => {
+          if (!r) return r;
+          const n = p.new as { status: string; category?: string | null };
+          return { ...r, status: n.status, category: "category" in n ? (n.category ?? null) : r.category };
+        }))
       .subscribe();
     return () => { db.removeChannel(ch); };
   }, [roomId]);
@@ -153,6 +160,21 @@ export default function LivePage({
       active.status === "extended" ||
       active.status === "ending");
 
+  async function pickCategory(category: string) {
+    if (!room) return;
+    const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/category`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ category }),
+    });
+    if (!res.ok) {
+      setError(t("actionFailed"));
+      return;
+    }
+    setRoom((r) => (r ? { ...r, category } : r));
+    setCatMsg(true);
+  }
+
   async function startBid(id: string) {
     if (acting) return;
     setActing(true);
@@ -196,7 +218,28 @@ export default function LivePage({
         <section className="min-w-0">
           {isOwner && room && (
             <div className="mb-3 flex flex-col gap-2">
-              <StreamControls roomId={roomId} roomStatus={room.status} activeItemId={activeId} onChange={(s) => setRoom((r) => r && { ...r, status: s })} />
+              {room.category == null ? (
+                <NeuCard className="flex flex-col gap-2 p-4">
+                  <p className="text-sm">{t("pickCategory")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => pickCategory(c)}
+                        className="pressable rounded-full border border-white/15 px-3 py-1 text-xs"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </NeuCard>
+              ) : (
+                <StreamControls roomId={roomId} roomStatus={room.status} activeItemId={activeId} onChange={(s) => setRoom((r) => r && { ...r, status: s })} />
+              )}
+              {catMsg && room.category != null && (
+                <p className="text-xs text-emerald-300">{t("categorySet")}</p>
+              )}
               {roomStatus !== "ended" && <ThumbnailSetter roomId={roomId} />}
             </div>
           )}
@@ -256,7 +299,7 @@ export default function LivePage({
                     >
                       {i.title} ({i.status})
                     </button>
-                    {isOwner && i.status === "lobby" && (
+                    {isOwner && room?.category != null && i.status === "lobby" && (
                       <button
                         type="button"
                         onClick={() => startBid(i.id)}
@@ -313,6 +356,9 @@ export default function LivePage({
                   tone={active.status === "closed" ? "closed" : "muted"}
                 >
                   {active.status}
+                </Badge>
+                <Badge tone="muted">
+                  {active.auction_mode === "hard" ? t("hardClose") : t("softClose")}
                 </Badge>
               </div>
               {active.img_url && (

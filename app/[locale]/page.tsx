@@ -15,7 +15,7 @@ import { Spotlight } from "@/components/effects/Spotlight";
 
 type Room = { id: string; title: string; status: string; thumbnail_url?: string | null };
 
-const CATS: Category[] = ["all", "pokemon", "diecast", "sneakers"];
+const CATS: Category[] = ["all", "sneakers", "tcg", "vintage", "electronics"];
 
 function toneFor(status: string): "live" | "ending" | "closed" | "muted" {
   if (status === "live") return "live";

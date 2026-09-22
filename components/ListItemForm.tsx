@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
 import { FieldInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/ui";
 import { CameraCapture } from "@/components/CameraCapture";
 import { validateSellInput } from "@/lib/sell";
 import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
@@ -18,6 +19,7 @@ export type ListedItem = {
   current_price: number;
   ends_at: string;
   status: string;
+  auction_mode: string;
 };
 
 export function ListItemForm({
@@ -32,11 +34,16 @@ export function ListItemForm({
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [price, setPrice] = useState("");
+  const [mode, setMode] = useState<"soft" | "hard">("soft");
+  const [duration, setDuration] = useState(30);
+  const [custom, setCustom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const [showCam, setShowCam] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+
+  const effDuration = custom === "" ? duration : Number(custom);
 
   useEffect(() => {
     if (!file) {
@@ -92,6 +99,8 @@ export function ListItemForm({
       fd.set("title", title.trim());
       fd.set("start_price", String(start_price));
       fd.set("file", file);
+      fd.set("mode", mode);
+      fd.set("duration_sec", String(effDuration));
       const res = await fetch("/api/items", { method: "POST", body: fd });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -103,6 +112,9 @@ export function ListItemForm({
       setTitle("");
       setFile(null);
       setPrice("");
+      setMode("soft");
+      setDuration(30);
+      setCustom("");
       if (picker.current) picker.current.value = "";
       setOpen(false);
     } catch {
@@ -180,6 +192,67 @@ export function ListItemForm({
             required
           />
         </label>
+        <div className="flex flex-col gap-1 text-sm">
+          <span>{t("auctionMode")}</span>
+          <div className="flex gap-2" role="group" aria-label={t("auctionMode")}>
+            {(["soft", "hard"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                aria-pressed={mode === m}
+                className={cn(
+                  "pressable flex-1 rounded-full border px-3 py-1 text-xs",
+                  mode === m
+                    ? "border-accent/60 bg-accent/10 font-semibold"
+                    : "border-white/15",
+                )}
+              >
+                {m === "soft" ? t("softClose") : t("hardClose")}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs opacity-60">
+            {mode === "soft" ? t("softNote") : t("hardNote")}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1 text-sm">
+          <span>{t("duration")}</span>
+          <div className="flex flex-wrap gap-2">
+            {[15, 30, 60].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => { setDuration(s); setCustom(""); }}
+                aria-pressed={custom === "" && duration === s}
+                className={cn(
+                  "pressable rounded-full border px-3 py-1 text-xs",
+                  custom === "" && duration === s
+                    ? "border-accent/60 bg-accent/10 font-semibold"
+                    : "border-white/15",
+                )}
+              >
+                {s}s
+              </button>
+            ))}
+          </div>
+          <FieldInput
+            value={custom}
+            inputMode="numeric"
+            type="number"
+            min={10}
+            max={300}
+            placeholder={t("customSeconds")}
+            onChange={(e) => setCustom(e.target.value)}
+            onBlur={() => {
+              const n = Number(custom);
+              if (!custom) return;
+              const clamped = Number.isFinite(n) ? Math.min(300, Math.max(10, Math.floor(n))) : 30;
+              setCustom(String(clamped));
+              setDuration(clamped);
+            }}
+          />
+        </div>
         {error && (
           <p role="alert" className="text-sm text-red-400">
             {error}

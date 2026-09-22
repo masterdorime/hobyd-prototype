@@ -77,5 +77,14 @@
   "itemTitle": "Title",
   "itemPhoto": "Photo",
   "itemPrice": "Start price (IDR)",
+  "auctionMode": "Auction mode",
+  "softClose": "Soft close",
+  "hardClose": "Sudden death",
+  "softNote": "Bids in the last seconds extend the clock.",
+  "hardNote": "The clock never moves. Last bid wins.",
+  "duration": "Bid duration",
+  "customSeconds": "Custom seconds (10–300)",
+  "pickCategory": "Pick a category to open bidding.",
+  "categorySet": "Category set.",
   "footerNote": "HOBYD pilot demo — sandbox payments, no real money."
 }
