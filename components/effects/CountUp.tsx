@@ -12,7 +12,6 @@ export function CountUp({ value }: { value: number }) {
 
   useEffect(() => {
     if (reduce) {
-      setShown(value);
       from.current = value;
       return;
     }
@@ -32,5 +31,5 @@ export function CountUp({ value }: { value: number }) {
     return () => cancelAnimationFrame(raf);
   }, [value, reduce]);
 
-  return <span className="tnum">{formatIDR(shown)}</span>;
+  return <span className="tnum">{formatIDR(reduce ? value : shown)}</span>;
 }
