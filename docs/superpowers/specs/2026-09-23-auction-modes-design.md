@@ -80,9 +80,10 @@ route handlers).
   the row's `duration_sec` instead of `env.auctionSecs()`.
 - `POST /api/items/[id]/settle`, close, end routes — unchanged
   (mode-independent settlement; hard-close items end by timer or owner).
-- `PATCH /api/rooms/[id]` (new) — owner-only; body `{ category }`;
-  `isCategory` else 400 `invalid`; returns the room. Powers the gate
-  picker. (PUT avoided: partial update semantics.)
+- `POST /api/rooms/[id]/category` (new) — owner-only; body
+  `{ category }`; `isCategory` else 400 `invalid`; returns the room.
+  Powers the gate picker. (Sub-route POST matches the go-live/end
+  house style for owner actions.)
 - `POST /api/rooms/[id]/go-live` — unchanged (video may start
   category-less; §6 gates bidding, not video).
 - `place_bid(p_item_id, p_bidder, p_amount, p_max_extensions, p_mode)` —
@@ -103,7 +104,7 @@ route handlers).
   duration, customSeconds`.
 - **Category gate** (live page, owner-only): when `room.category ==
   null`, a neu card replaces `StreamControls` + bid controls:
-  four category buttons → `PATCH` → room updates via existing
+  four category buttons → `POST category` → room updates via existing
   `room-${roomId}` subscription. Video/camera/stream controls stay
   live. outright: no category ⇒ no Start-bid buttons anywhere
   (list buttons hidden, not just disabled — a disabled button with no
@@ -147,7 +148,7 @@ extend, hard accept, start, settle, and category pick alike.
   normal clamp + `close_item` (owner escape hatch preserved).
 - Hard-close last-second bid: accepted if `now <= ends_at` inside the
   txn (RULESET 2 boundary); `close_item` remains the single settler.
-- Category PATCH by non-owner → 403; invalid value → 400; room
+- Category POST by non-owner → 403; invalid value → 400; room
   not found → 404 (matches house style).
 - BottomNav Go Live failure (no session mid-tap) → stays put; header
   Go Live keeps its current silent behavior (parked item, unchanged).
