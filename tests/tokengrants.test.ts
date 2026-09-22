@@ -1,7 +1,8 @@
 // tests/tokengrants.test.ts
 import { grantFor } from "../app/api/livekit-token/route";
-process.env.SELLER_ALLOWLIST = "seller@hobyd.id";
-test("seller publishes, bidder subscribes", () => {
-  expect(grantFor("seller@hobyd.id", ["seller@hobyd.id"])).toBe("publisher");
-  expect(grantFor("fan@x.id", ["seller@hobyd.id"])).toBe("subscriber");
+
+test("room owner publishes, everyone else subscribes", () => {
+  expect(grantFor("user-1", "user-1")).toBe("publisher");
+  expect(grantFor("user-2", "user-1")).toBe("subscriber");
+  expect(grantFor("user-2", null)).toBe("subscriber");
 });
