@@ -27,6 +27,7 @@ export default function SellPage({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -75,14 +76,40 @@ export default function SellPage({
       img_url: file?.name ?? "",
       start_price,
     });
-    if (!check.ok || !roomId || !file) {
+    if (!check.ok || !file) {
       setError(check.error ?? "invalid");
       return;
     }
     setBusy(true);
     try {
+      let rid = roomId;
+      if (!rid) {
+        setStage("room");
+        const rr = await fetch("/api/rooms", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title: "HOBYD Live" }),
+        });
+        if (!rr.ok) {
+          const body = await rr.json().catch(() => null);
+          setError(body?.error ?? "room_failed");
+          return;
+        }
+        const room = await rr.json();
+        if (!room?.id) {
+          setError("room_failed");
+          return;
+        }
+        rid = room.id;
+        setRoomId(rid);
+      }
+      if (!rid) {
+        setError("room_failed");
+        return;
+      }
+      setStage("upload");
       const fd = new FormData();
-      fd.set("room_id", roomId);
+      fd.set("room_id", rid);
       fd.set("title", title.trim());
       fd.set("start_price", String(start_price));
       fd.set("file", file);
@@ -102,6 +129,7 @@ export default function SellPage({
       setError("create_failed");
     } finally {
       setBusy(false);
+      setStage(null);
     }
   }
 
@@ -161,9 +189,16 @@ export default function SellPage({
               </Link>
             </p>
           )}
-          <Button type="submit" disabled={busy || !roomId || !file}>
+          {!roomId && !done && (
+            <p className="text-xs opacity-60">
+              No live room yet — one opens automatically when you list.
+            </p>
+          )}
+          <Button type="submit" disabled={busy || !file}>
             {busy
-              ? "Uploading…"
+              ? stage === "room"
+                ? "Opening live room…"
+                : "Uploading…"
               : t("payNow") === "Bayar sekarang"
                 ? "Tayangkan"
                 : "List item"}

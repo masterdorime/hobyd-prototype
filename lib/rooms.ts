@@ -8,6 +8,14 @@ const HINTS: Record<Exclude<Category, "all">, string[]> = {
   sneakers: ["sneaker", "nike", "jordan", "dunk"],
 };
 
+export function buildRoomRow(o: { title: string; seller_name: string }): {
+  title: string;
+  seller_name: string;
+  status: string;
+} {
+  return { title: o.title, seller_name: o.seller_name, status: "live" };
+}
+
 export function filterRooms(rooms: LobbyRoom[], cat: string): LobbyRoom[] {
   if (cat === "pokemon" || cat === "diecast" || cat === "sneakers") {
     const hits = rooms.filter((r) =>
