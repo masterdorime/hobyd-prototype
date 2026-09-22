@@ -19,6 +19,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!room) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (room.owner_id !== user.id)
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Idempotent: ending an already-ended room succeeds without side effects.
+  if (room.status === "ended") return NextResponse.json({ ended: true, closed: null });
 
   let closed: unknown = null;
   if (mode === "settle" && typeof body?.item_id === "string" && isUuid(body.item_id)) {
