@@ -51,5 +51,6 @@
   "noBidsYet": "Belum ada bid.",
   "rateLimited": "Pelan-pelan — tunggu sebentar.",
   "actionFailed": "Terjadi kesalahan - coba lagi.",
+  "messageTooLong": "Pesan terlalu panjang (maks 200).",
   "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }

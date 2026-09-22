@@ -69,8 +69,16 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
     setBusy(false);
     if (!res.ok) {
       const err = (await res.json().catch(() => null))?.error;
-      setHint(err === "rate_limited" ? t("rateLimited") : t("nicknamePrompt"));
-      if (err === "rate_limited") setTimeout(() => setHint(null), 2000);
+      if (err === "rate_limited") {
+        setHint(t("rateLimited"));
+        setTimeout(() => setHint(null), 2000);
+      } else if (err === "too_long") {
+        setHint(t("messageTooLong"));
+      } else if (err === "invalid") {
+        setHint(t("nicknamePrompt"));
+      } else {
+        setHint(t("actionFailed"));
+      }
       return;
     }
     try { localStorage.setItem(NICK_KEY, name); } catch { /* private mode */ }
