@@ -21,6 +21,8 @@ function toneFor(status: string): "live" | "ending" | "closed" | "muted" {
   if (status === "live") return "live";
   if (status === "ending") return "ending";
   if (status === "ended" || status === "closed") return "closed";
+  // "preview" (and any unknown) shares the muted tone — Badge has no
+  // preview variant and we add no new visual language for it.
   return "muted";
 }
 
