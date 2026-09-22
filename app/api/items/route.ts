@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/supabase/admin";
 import { requireUser, isSeller } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { BUCKET, itemImagePath, validateImageFile } from "@/lib/upload";
 
 export function buildItemRow(
   input: { room_id: string; title: string; img_url: string; start_price: number },
@@ -15,14 +16,56 @@ export function buildItemRow(
   };
 }
 
+function isUploadFile(v: unknown): v is File {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as File).arrayBuffer === "function" &&
+    typeof (v as File).name === "string"
+  );
+}
+
 export async function POST(req: Request) {
   const user = await requireUser().catch(() => null);
   if (!user || !isSeller(user.email))
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const body = await req.json();
-  if (!body.room_id || !body.title || !body.img_url || !(body.start_price > 0))
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
-  const row = buildItemRow(body, Date.now(), env.auctionSecs());
+
+  let input: { room_id: string; title: string; img_url: string; start_price: number };
+  const ct = req.headers.get("content-type") ?? "";
+  if (ct.includes("multipart/form-data")) {
+    const fd = await req.formData();
+    const room_id = String(fd.get("room_id") ?? "");
+    const title = String(fd.get("title") ?? "").trim();
+    const start_price = Number(fd.get("start_price"));
+    const file = fd.get("file");
+    if (!room_id || !title || !(start_price > 0) || !isUploadFile(file))
+      return NextResponse.json({ error: "invalid" }, { status: 400 });
+    const check = validateImageFile({
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    });
+    if (!check.ok)
+      return NextResponse.json({ error: check.error }, { status: 400 });
+    const path = itemImagePath(room_id, file.type);
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await adminDb()
+      .storage.from(BUCKET)
+      .upload(path, bytes, { contentType: file.type, upsert: false });
+    if (upErr)
+      return NextResponse.json({ error: "upload_failed" }, { status: 500 });
+    const {
+      data: { publicUrl },
+    } = adminDb().storage.from(BUCKET).getPublicUrl(path);
+    input = { room_id, title, img_url: publicUrl, start_price };
+  } else {
+    const body = await req.json();
+    if (!body.room_id || !body.title || !body.img_url || !(body.start_price > 0))
+      return NextResponse.json({ error: "invalid" }, { status: 400 });
+    input = body;
+  }
+
+  const row = buildItemRow(input, Date.now(), env.auctionSecs());
   const { data, error } = await adminDb().from("items").insert(row).select().single();
   if (error) return NextResponse.json({ error: "create_failed" }, { status: 500 });
   return NextResponse.json(data);

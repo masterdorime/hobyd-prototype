@@ -1,13 +1,16 @@
-// app/[locale]/sell/page.tsx — ultra-fast seller listing (photo + title + price).
-// Picks the first lobby/live room, validates with lib/sell, POSTs /api/items.
+// app/[locale]/sell/page.tsx — ultra-fast seller listing.
+// Photo comes from the OS file picker (input[type=file]), previewed locally,
+// then uploaded as multipart/form-data; the API stores it in the
+// service_role-only `item-images` bucket. No pasted URLs needed.
 "use client";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
 import { FieldInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { validateSellInput } from "@/lib/sell";
+import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
 
 export default function SellPage({
   params,
@@ -18,11 +21,13 @@ export default function SellPage({
   const t = useTranslations();
   const [roomId, setRoomId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
-  const [img, setImg] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [price, setPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/rooms")
@@ -31,27 +36,57 @@ export default function SellPage({
       .catch(() => setRoomId(null));
   }, []);
 
+  useEffect(() => {
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setError(null);
+    if (!f) {
+      setFile(null);
+      return;
+    }
+    const check = validateImageFile({ name: f.name, type: f.type, size: f.size });
+    if (!check.ok) {
+      setFile(null);
+      setError(
+        check.error === "too_large"
+          ? `Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`
+          : "JPG / PNG / WebP only",
+      );
+      return;
+    }
+    setFile(f);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const start_price = Number(price);
-    const check = validateSellInput({ title, img_url: img, start_price });
-    if (!check.ok || !roomId) {
+    const check = validateSellInput({
+      title,
+      img_url: file?.name ?? "",
+      start_price,
+    });
+    if (!check.ok || !roomId || !file) {
       setError(check.error ?? "invalid");
       return;
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/items", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          room_id: roomId,
-          title: title.trim(),
-          img_url: img.trim(),
-          start_price,
-        }),
-      });
+      const fd = new FormData();
+      fd.set("room_id", roomId);
+      fd.set("title", title.trim());
+      fd.set("start_price", String(start_price));
+      fd.set("file", file);
+      const res = await fetch("/api/items", { method: "POST", body: fd });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "create_failed");
@@ -59,8 +94,9 @@ export default function SellPage({
         const item = await res.json();
         setDone(item.id);
         setTitle("");
-        setImg("");
+        setFile(null);
         setPrice("");
+        if (picker.current) picker.current.value = "";
       }
     } catch {
       setError("create_failed");
@@ -83,16 +119,23 @@ export default function SellPage({
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Photo URL
-            <FieldInput
-              value={img}
-              onChange={(e) => setImg(e.target.value)}
-              placeholder="https://…"
-              inputMode="url"
-              required
+          <div className="flex flex-col gap-1 text-sm">
+            <span>Photo</span>
+            <input
+              ref={picker}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={pick}
+              className="tnum w-full rounded-xl border border-dashed border-white/20 bg-black/40 px-3 py-2.5 text-white file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-3 file:py-1 file:text-sm file:font-semibold file:text-accent-ink"
             />
-          </label>
+            {preview && (
+              <img
+                src={preview}
+                alt="Listing preview"
+                className="mt-1 h-auto w-full max-w-64 rounded-xl object-cover"
+              />
+            )}
+          </div>
           <label className="flex flex-col gap-1 text-sm">
             Start price (IDR)
             <FieldInput
@@ -113,16 +156,17 @@ export default function SellPage({
           {done && (
             <p className="text-sm text-emerald-300">
               Listed.{" "}
-              <Link
-                href={`/${locale}/live/${roomId}`}
-                className="underline"
-              >
+              <Link href={`/${locale}/live/${roomId}`} className="underline">
                 Back to live
               </Link>
             </p>
           )}
-          <Button type="submit" disabled={busy || !roomId}>
-            {busy ? "…" : t("payNow") === "Bayar sekarang" ? "Tayangkan" : "List item"}
+          <Button type="submit" disabled={busy || !roomId || !file}>
+            {busy
+              ? "Uploading…"
+              : t("payNow") === "Bayar sekarang"
+                ? "Tayangkan"
+                : "List item"}
           </Button>
         </form>
       </NeuCard>
