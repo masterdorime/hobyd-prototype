@@ -199,6 +199,7 @@ alter table rooms drop constraint if exists rooms_status_check;
 alter table rooms add constraint rooms_status_check
   check (status in ('lobby','preview','live','ended'));
 alter table rooms add column if not exists owner_id uuid references auth.users(id) on delete cascade;
+alter table rooms add column if not exists thumbnail_url text;
 
 create table if not exists chat_messages (
   id uuid primary key default gen_random_uuid(),
