@@ -325,3 +325,7 @@ $$;
 
 revoke all on function place_bid(uuid, uuid, int, int, text, int, int) from public, anon, authenticated;
 grant all on function place_bid(uuid, uuid, int, int, text, int, int) to service_role;
+
+-- The pre-modes 4-arg overload is dropped: all callers pin the 7-arg
+-- form, and a stale mode-ignorant path must not remain callable.
+drop function if exists place_bid(uuid, uuid, int, int);
