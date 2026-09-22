@@ -29,8 +29,29 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
     return () => { db.removeChannel(ch); };
   }, [roomId]);
 
+  // Prefill the nickname for signed-in users with no stored nick:
+  // profiles.name first, email prefix before @ as fallback. Guests unchanged.
   useEffect(() => {
-    try { setNick(localStorage.getItem(NICK_KEY) ?? ""); } catch { /* private mode */ }
+    let cancelled = false;
+    (async () => {
+      try {
+        const stored = localStorage.getItem(NICK_KEY);
+        if (stored) { setNick(stored); return; }
+      } catch { return; /* private mode — leave blank */ }
+      try {
+        const db = browserDb();
+        const { data } = await db.auth.getUser();
+        const user = data.user;
+        if (!user || cancelled) return;
+        const { data: profile } = await db.from("profiles")
+          .select("name").eq("id", user.id).single();
+        const name = (profile as { name: string } | null)?.name?.trim();
+        if (cancelled) return;
+        if (name) setNick(name);
+        else if (user.email) setNick(user.email.split("@")[0]);
+      } catch { /* guests / lookup failure — leave blank */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   async function send(e: React.FormEvent) {
