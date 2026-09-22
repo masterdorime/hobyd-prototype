@@ -299,6 +299,7 @@ export default function LivePage({
                     >
                       {i.title} ({i.status})
                     </button>
+                    <Badge tone="muted">{i.auction_mode === "hard" ? t("hardClose") : t("softClose")}</Badge>
                     {isOwner && room?.category != null && i.status === "lobby" && (
                       <button
                         type="button"
