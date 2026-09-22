@@ -20,7 +20,11 @@ export function Leaderboard({ itemId }: { itemId: string }) {
     db.from("bids").select("id,bidder,amount,created_at").eq("item_id", itemId)
       .order("created_at", { ascending: false }).limit(100)
       .then(({ data }) => setBids((data ?? []) as RankedBid[]));
-    const ch = db.channel(`bids-${itemId}`)
+    // NOTE: own topic (`leaderboard-…`, not `bids-…`). supabase-js hands
+    // back the same channel instance per topic, and BidFeed already owns
+    // `bids-${itemId}` — sharing it throws "cannot add callbacks after
+    // subscribe()". Same filter, separate subscription.
+    const ch = db.channel(`leaderboard-${itemId}`)
       .on("postgres_changes",
         { event: "INSERT", schema: "public", table: "bids", filter: `item_id=eq.${itemId}` },
         (p) => setBids((b) => [...b, p.new as RankedBid].slice(-100)))
