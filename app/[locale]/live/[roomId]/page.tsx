@@ -1,8 +1,7 @@
-// app/[locale]/live/[roomId]/page.tsx — watch + bid + countdown + closer
-// Task 11 restyle (visual-only): dark cards, tabular countdown that turns
-// amber under 10s (the number itself is never animated), pressable bid
-// button via BidForm, error announced with role=alert. All timers, closer
-// logic, subscriptions, and handlers are untouched.
+// app/[locale]/live/[roomId]/page.tsx — WATCH+BID with glass live stage.
+// Timers, closer, subscriptions, handlers untouched; visual-only hybrid:
+// glass overlay (LIVE badge + countdown chip) over video, neu bidding panel,
+// CountUp price, mapped ID/EN errors, skeleton while loading.
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -10,7 +9,16 @@ import { useTranslations } from "next-intl";
 import { LiveVideo } from "@/components/LiveVideo";
 import { BidFeed } from "@/components/BidFeed";
 import { BidForm } from "@/components/BidForm";
+import { NeuCard } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CountUp } from "@/components/effects/CountUp";
 import { browserDb } from "@/lib/supabase/client";
+import {
+  bidErrorMessage,
+  countdownParts,
+  isUrgent,
+} from "@/lib/format";
+import { cn } from "@/lib/ui";
 
 type Item = {
   id: string;
@@ -33,6 +41,7 @@ export default function LivePage({
   const { locale, roomId } = use(params);
   const t = useTranslations();
   const [items, setItems] = useState<Item[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
@@ -44,13 +53,16 @@ export default function LivePage({
     fetch(`/api/items?room_id=${encodeURIComponent(roomId)}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: Item[]) => {
-        setItems(rows);
-        setActiveId(rows.find((i) => i.status === "live")?.id ?? rows[0]?.id ?? null);
+        const list = Array.isArray(rows) ? rows : [];
+        setItems(list);
+        setActiveId(
+          list.find((i) => i.status === "live")?.id ?? list[0]?.id ?? null,
+        );
       })
-      .catch(() => setItems([]));
+      .catch(() => setItems([]))
+      .finally(() => setLoaded(true));
   }, [roomId]);
 
-  // Subscribe to the active item row (price / ends_at / status updates).
   useEffect(() => {
     if (!activeId) return;
     const db = browserDb();
@@ -60,7 +72,9 @@ export default function LivePage({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "items", filter: `id=eq.${activeId}` },
         (p) =>
-          setItems((cur) => cur.map((i) => (i.id === activeId ? { ...i, ...(p.new as object) } : i))),
+          setItems((cur) =>
+            cur.map((i) => (i.id === activeId ? { ...i, ...(p.new as object) } : i)),
+          ),
       )
       .subscribe();
     return () => {
@@ -68,7 +82,6 @@ export default function LivePage({
     };
   }, [activeId]);
 
-  // Tick the countdown; fire the closer once when the timer hits zero.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -81,7 +94,9 @@ export default function LivePage({
         .then((r) => (r.ok ? r.json() : null))
         .then((body) => {
           if (body && ("closed" in body || "noop" in body))
-            setItems((cur) => cur.map((i) => (i.id === active.id ? { ...i, status: "closed" } : i)));
+            setItems((cur) =>
+              cur.map((i) => (i.id === active.id ? { ...i, status: "closed" } : i)),
+            );
         })
         .catch(() => {});
     }
@@ -97,26 +112,49 @@ export default function LivePage({
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      setError(body?.error ?? "bid_failed");
+      setError(bidErrorMessage(body?.error ?? "bid_failed", locale));
     }
   };
 
   const left = active ? msLeft(active.ends_at, now) : 0;
-  const urgent = active !== null && left <= 10_000;
+  const urgent = active !== null && isUrgent(left);
+  const { m, s } = countdownParts(left);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-      {/* Mobile-first single column; desktop splits video | bidding 2-col. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="min-w-0">
-          <LiveVideo roomId={roomId} />
+          <div className="relative overflow-hidden rounded-2xl">
+            <LiveVideo roomId={roomId} />
+            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+              <Badge tone="live">
+                <span className="live-dot" /> LIVE
+              </Badge>
+              {active && active.status !== "closed" && (
+                <span
+                  className={cn(
+                    "glass-panel tnum rounded-full px-3 py-1 text-sm",
+                    urgent ? "font-semibold text-accent" : "text-white",
+                  )}
+                >
+                  {m}:{s}
+                </span>
+              )}
+            </div>
+          </div>
           {items.length > 1 && (
             <ul className="mt-4 flex flex-col gap-2">
               {items.map((i) => (
                 <li key={i.id}>
                   <button
                     onClick={() => setActiveId(i.id)}
-                    className="pressable w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-sm backdrop-blur-md"
+                    aria-pressed={i.id === activeId}
+                    className={cn(
+                      "pressable w-full rounded-xl border px-3 py-2 text-left text-sm backdrop-blur-md",
+                      i.id === activeId
+                        ? "border-accent/50 bg-accent/10"
+                        : "border-white/10 bg-white/5",
+                    )}
                   >
                     {i.title} ({i.status})
                   </button>
@@ -126,25 +164,43 @@ export default function LivePage({
           )}
         </section>
         <section className="min-w-0">
-          {!active && <p className="text-sm opacity-70">{t("waiting")}</p>}
-          {active && (
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md sm:p-5">
-              <h1 className="display text-xl font-bold sm:text-2xl">{active.title}</h1>
+          {!loaded ? (
+            <div className="skeleton h-72 rounded-2xl" aria-hidden />
+          ) : !active ? (
+            <p className="text-sm opacity-70">{t("waiting")}</p>
+          ) : (
+            <NeuCard className="flex flex-col gap-3 p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="display text-xl font-bold sm:text-2xl">
+                  {active.title}
+                </h1>
+                <Badge
+                  tone={active.status === "closed" ? "closed" : "muted"}
+                >
+                  {active.status}
+                </Badge>
+              </div>
               {active.img_url && (
                 <img
                   src={active.img_url}
                   alt={active.title}
+                  loading="lazy"
                   className="h-auto w-full rounded-xl object-cover"
                 />
               )}
-              <p className="tnum text-lg">
-                {t("current")}: Rp{active.current_price.toLocaleString("id-ID")}
+              <p className="text-lg">
+                {t("current")}: <CountUp value={active.current_price} />
               </p>
-              <p
-                className={`tnum text-sm opacity-80 ${urgent ? "font-semibold text-accent opacity-100" : ""}`}
-              >
-                {t("endsIn")}: {Math.floor(left / 1000)} {t("seconds")}
-              </p>
+              {active.status !== "closed" && (
+                <p
+                  className={cn(
+                    "tnum text-sm opacity-80",
+                    urgent && "font-semibold text-accent opacity-100",
+                  )}
+                >
+                  {t("endsIn")}: {Math.floor(left / 1000)} {t("seconds")}
+                </p>
+              )}
               {active.status === "closed" ? (
                 <Link
                   href={`/${locale}/win/${active.id}`}
@@ -161,7 +217,7 @@ export default function LivePage({
                 </p>
               )}
               <BidFeed itemId={active.id} />
-            </div>
+            </NeuCard>
           )}
         </section>
       </div>

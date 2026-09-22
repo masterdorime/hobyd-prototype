@@ -24,6 +24,14 @@ const MESSAGES: Record<string, { id: string; en: string }> = {
   bid_failed: { id: "Tawaran gagal", en: "Bid failed" },
 };
 
+export function isUrgent(msLeft: number): boolean {
+  return msLeft <= 10_000;
+}
+
+export function quickAmounts(current: number): number[] {
+  return [current + 10_000, current + 50_000, current + 100_000];
+}
+
 export function bidErrorMessage(code: string, locale: string): string {
   const hit = MESSAGES[code];
   if (!hit) return code;
