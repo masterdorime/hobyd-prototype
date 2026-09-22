@@ -51,6 +51,8 @@ export default function LivePage({
   const [error, setError] = useState<string | null>(null);
   const [room, setRoom] = useState<{ owner_id: string | null; status: string } | null>(null);
   const [me, setMe] = useState<string | null>(null);
+  const [armClose, setArmClose] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
   const closeFired = useRef<Set<string>>(new Set());
 
   const active = items.find((i) => i.id === activeId) ?? null;
@@ -113,7 +115,7 @@ export default function LivePage({
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
-    if (!active || active.status === "closed") return;
+    if (!active || active.status === "closed" || active.status === "lobby") return;
     if (msLeft(active.ends_at, now) <= 0 && !closeFired.current.has(active.id)) {
       closeFired.current.add(active.id);
       fetch(`/api/items/${active.id}/close`, { method: "POST" })
@@ -128,8 +130,7 @@ export default function LivePage({
     }
   }, [active, now]);
 
-  const placeBid = async (amount: number) => {
-    if (!active) return;
+  const placeBid = async (amount: number) => {    if (!active) return;
     setError(null);
     const res = await fetch("/api/bids", {
       method: "POST",
@@ -145,6 +146,48 @@ export default function LivePage({
   const left = active ? msLeft(active.ends_at, now) : 0;
   const urgent = active !== null && isUrgent(left);
   const { m, s } = countdownParts(left);
+  const biddingOpen =
+    !!active &&
+    (active.status === "live" ||
+      active.status === "extended" ||
+      active.status === "ending");
+
+  async function startBid(id: string) {
+    if (acting) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/items/${id}/start`, { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.id)
+        setItems((cur) => cur.map((i) => (i.id === id ? { ...i, ...(body as object) } : i)));
+      else setError(bidErrorMessage(body?.error ?? "bid_failed", locale));
+    } catch {
+      setError(bidErrorMessage("bid_failed", locale));
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function closeBid(id: string) {
+    if (armClose !== id) {
+      setArmClose(id);
+      return;
+    }
+    if (acting) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/items/${id}/settle`, { method: "POST" });
+      const body = await res.json().catch(() => null);
+      if (res.ok && body && ("closed" in body || "noop" in body)) {
+        setItems((cur) => cur.map((i) => (i.id === id ? { ...i, status: "closed" } : i)));
+        setArmClose(null);
+      } else setError(bidErrorMessage(body?.error ?? "bid_failed", locale));
+    } catch {
+      setError(bidErrorMessage("bid_failed", locale));
+    } finally {
+      setActing(false);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
@@ -177,7 +220,7 @@ export default function LivePage({
                   <span className="live-dot" /> LIVE
                 </Badge>
               )}
-              {active && active.status !== "closed" && (
+              {biddingOpen && (
                 <span
                   className={cn(
                     "glass-panel tnum rounded-full px-3 py-1 text-sm",
@@ -189,24 +232,56 @@ export default function LivePage({
               )}
             </div>
           </div>
-          {items.length > 1 && (
+          {items.length > 0 && (items.length > 1 || isOwner) && (
             <ul className="mt-4 flex flex-col gap-2">
-              {items.map((i) => (
-                <li key={i.id}>
-                  <button
-                    onClick={() => setActiveId(i.id)}
-                    aria-pressed={i.id === activeId}
+              {items.map((i) => {
+                const liveish =
+                  i.status === "live" || i.status === "extended" || i.status === "ending";
+                return (
+                  <li
+                    key={i.id}
                     className={cn(
-                      "pressable w-full rounded-xl border px-3 py-2 text-left text-sm backdrop-blur-md",
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm backdrop-blur-md",
                       i.id === activeId
                         ? "border-accent/50 bg-accent/10"
                         : "border-white/10 bg-white/5",
                     )}
                   >
-                    {i.title} ({i.status})
-                  </button>
-                </li>
-              ))}
+                    <button
+                      onClick={() => setActiveId(i.id)}
+                      aria-pressed={i.id === activeId}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      {i.title} ({i.status})
+                    </button>
+                    {isOwner && i.status === "lobby" && (
+                      <button
+                        type="button"
+                        onClick={() => startBid(i.id)}
+                        disabled={acting}
+                        className="pressable shrink-0 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink disabled:opacity-50"
+                      >
+                        {t("startBid")}
+                      </button>
+                    )}
+                    {isOwner && liveish && (
+                      <button
+                        type="button"
+                        onClick={() => closeBid(i.id)}
+                        disabled={acting}
+                        className={cn(
+                          "pressable shrink-0 rounded-full border px-3 py-1 text-xs disabled:opacity-50",
+                          armClose === i.id
+                            ? "border-red-400/60 bg-red-400/10 font-semibold text-red-300"
+                            : "border-white/15",
+                        )}
+                      >
+                        {armClose === i.id ? t("confirmClose") : t("closeBid")}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
           {isOwner && room && roomStatus !== "ended" && (
@@ -249,7 +324,7 @@ export default function LivePage({
               <p className="text-lg">
                 {t("current")}: <CountUp value={active.current_price} />
               </p>
-              {active.status !== "closed" && (
+              {biddingOpen && (
                 <p
                   className={cn(
                     "tnum text-sm opacity-80",
@@ -266,6 +341,8 @@ export default function LivePage({
                 >
                   {t("seeResult")}
                 </Link>
+              ) : !biddingOpen ? (
+                <p className="text-sm opacity-70">{t("bidNotStarted")}</p>
               ) : (
                 <>
                   <Leaderboard itemId={active.id} />

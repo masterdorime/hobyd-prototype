@@ -29,6 +29,7 @@ export default function SellPage({
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!file) {
@@ -147,6 +148,22 @@ export default function SellPage({
               onChange={pick}
               className="tnum w-full rounded-xl border border-dashed border-white/20 bg-black/40 px-3 py-2.5 text-white file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-3 file:py-1 file:text-sm file:font-semibold file:text-accent-ink"
             />
+            <input
+              ref={camera}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={pick}
+              aria-label={t("useCamera")}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => camera.current?.click()}
+              className="pressable self-start rounded-full border border-white/15 px-4 py-2 text-sm"
+            >
+              {t("useCamera")}
+            </button>
             {preview && (
               <img
                 src={preview}

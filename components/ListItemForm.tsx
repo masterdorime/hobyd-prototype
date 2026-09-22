@@ -2,7 +2,7 @@
 // Posts to the CURRENT room (multipart, same contract as the sell page)
 // so one live session can auction many items in sequence.
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
 import { FieldInput } from "@/components/ui/input";
@@ -34,6 +34,18 @@ export function ListItemForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -127,6 +139,32 @@ export function ListItemForm({
           aria-label={t("itemPhoto")}
           className="tnum w-full rounded-xl border border-dashed border-white/20 bg-black/40 px-3 py-2 text-sm text-white file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-3 file:py-1 file:text-sm file:font-semibold file:text-accent-ink"
         />
+        <input
+          ref={camera}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={pick}
+          aria-label={t("useCamera")}
+          className="hidden"
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => camera.current?.click()}
+            className="pressable rounded-full border border-white/15 px-4 py-2 text-sm"
+          >
+            {t("useCamera")}
+          </button>
+          {file && <span className="self-center truncate text-xs opacity-70">{file.name}</span>}
+        </div>
+        {preview && (
+          <img
+            src={preview}
+            alt={t("itemPhoto")}
+            className="h-auto w-full max-w-64 rounded-xl object-cover"
+          />
+        )}
         <label className="flex flex-col gap-1 text-sm">
           {t("itemPrice")}
           <FieldInput

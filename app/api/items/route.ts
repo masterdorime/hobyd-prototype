@@ -12,7 +12,7 @@ export function buildItemRow(
     room_id: input.room_id, title: input.title, img_url: input.img_url,
     start_price: input.start_price, current_price: input.start_price,
     ends_at: new Date(nowMs + durationSec * 1000).toISOString(),
-    extensions_used: 0, status: "live",
+    extensions_used: 0, status: "lobby",
   };
 }
 
