@@ -52,5 +52,12 @@
   "rateLimited": "Pelan-pelan — tunggu sebentar.",
   "actionFailed": "Terjadi kesalahan - coba lagi.",
   "messageTooLong": "Pesan terlalu panjang (maks 200).",
+  "camPreview": "Pratinjau kamera",
+  "publishCam": "Nyalakan kamera",
+  "publishing": "Menyiarkan…",
+  "camBlocked": "Kamera atau mic diblokir — izinkan akses lalu coba lagi.",
+  "retry": "Coba lagi",
+  "mic": "Mic",
+  "cam": "Kamera",
   "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }

@@ -160,11 +160,15 @@ export default function LivePage({
                 <p className="text-sm text-white/80">{t("waiting")}</p>
               </div>
             ) : roomStatus !== "live" ? (
-              <div className="glass-panel flex h-64 items-center justify-center">
-                <p className="text-sm text-white/80">{t(roomStatus === "preview" ? "startingSoon" : "streamEnded")}</p>
-              </div>
+              isOwner && roomStatus === "preview" ? (
+                <LiveVideo key="owner-pub" roomId={roomId} canPublish />
+              ) : (
+                <div className="glass-panel flex h-64 items-center justify-center">
+                  <p className="text-sm text-white/80">{t(roomStatus === "preview" ? "startingSoon" : "streamEnded")}</p>
+                </div>
+              )
             ) : (
-              <LiveVideo roomId={roomId} />
+              <LiveVideo key={isOwner ? "owner-pub" : "viewer"} roomId={roomId} canPublish={isOwner} />
             )}
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
               {roomStatus === "live" && (
