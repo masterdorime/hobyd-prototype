@@ -66,6 +66,8 @@
   "mic": "Mic",
   "cam": "Cam",
   "useCamera": "Use camera",
+  "takePhoto": "Take photo",
+  "switchCamera": "Switch camera",
   "startBid": "Start bid",
   "closeBid": "Close bid",
   "confirmClose": "Tap again to confirm",

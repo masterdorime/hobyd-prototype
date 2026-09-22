@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
 import { FieldInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { CameraCapture } from "@/components/CameraCapture";
 import { validateSellInput } from "@/lib/sell";
 import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
 
@@ -34,7 +35,7 @@ export function ListItemForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
-  const camera = useRef<HTMLInputElement>(null);
+  const [showCam, setShowCam] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +49,10 @@ export function ListItemForm({
   }, [file]);
 
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
+    acceptFile(e.target.files?.[0] ?? null);
+  }
+
+  function acceptFile(f: File | null) {
     setError(null);
     if (!f) {
       setFile(null);
@@ -139,25 +143,25 @@ export function ListItemForm({
           aria-label={t("itemPhoto")}
           className="tnum w-full rounded-xl border border-dashed border-white/20 bg-black/40 px-3 py-2 text-sm text-white file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-3 file:py-1 file:text-sm file:font-semibold file:text-accent-ink"
         />
-        <input
-          ref={camera}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={pick}
-          aria-label={t("useCamera")}
-          className="hidden"
-        />
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => camera.current?.click()}
+            onClick={() => setShowCam(true)}
             className="pressable rounded-full border border-white/15 px-4 py-2 text-sm"
           >
             {t("useCamera")}
           </button>
           {file && <span className="self-center truncate text-xs opacity-70">{file.name}</span>}
         </div>
+        {showCam && (
+          <CameraCapture
+            onCapture={(f) => {
+              setShowCam(false);
+              acceptFile(f);
+            }}
+            onClose={() => setShowCam(false)}
+          />
+        )}
         {preview && (
           <img
             src={preview}

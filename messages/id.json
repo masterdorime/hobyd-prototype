@@ -66,6 +66,8 @@
   "mic": "Mic",
   "cam": "Kamera",
   "useCamera": "Pakai kamera",
+  "takePhoto": "Ambil foto",
+  "switchCamera": "Ganti kamera",
   "startBid": "Mulai bid",
   "closeBid": "Tutup bid",
   "confirmClose": "Ketuk lagi untuk konfirmasi",

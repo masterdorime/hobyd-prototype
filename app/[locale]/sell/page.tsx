@@ -7,6 +7,7 @@ import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
+import { CameraCapture } from "@/components/CameraCapture";
 import { FieldInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { validateSellInput } from "@/lib/sell";
@@ -29,7 +30,22 @@ export default function SellPage({
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
-  const camera = useRef<HTMLInputElement>(null);
+  const [showCam, setShowCam] = useState(false);
+
+  function acceptCapture(f: File) {
+    setError(null);
+    const check = validateImageFile({ name: f.name, type: f.type, size: f.size });
+    if (!check.ok) {
+      setFile(null);
+      setError(
+        check.error === "too_large"
+          ? `Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`
+          : "JPG / PNG / WebP only",
+      );
+      return;
+    }
+    setFile(f);
+  }
 
   useEffect(() => {
     if (!file) {
@@ -148,22 +164,22 @@ export default function SellPage({
               onChange={pick}
               className="tnum w-full rounded-xl border border-dashed border-white/20 bg-black/40 px-3 py-2.5 text-white file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-3 file:py-1 file:text-sm file:font-semibold file:text-accent-ink"
             />
-            <input
-              ref={camera}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={pick}
-              aria-label={t("useCamera")}
-              className="hidden"
-            />
             <button
               type="button"
-              onClick={() => camera.current?.click()}
+              onClick={() => setShowCam(true)}
               className="pressable self-start rounded-full border border-white/15 px-4 py-2 text-sm"
             >
               {t("useCamera")}
             </button>
+            {showCam && (
+              <CameraCapture
+                onCapture={(f) => {
+                  setShowCam(false);
+                  acceptCapture(f);
+                }}
+                onClose={() => setShowCam(false)}
+              />
+            )}
             {preview && (
               <img
                 src={preview}
