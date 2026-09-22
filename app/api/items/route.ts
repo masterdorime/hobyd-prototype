@@ -41,6 +41,13 @@ export async function POST(req: Request) {
     const file = fd.get("file");
     if (!room_id || !title || !(start_price > 0) || !isUploadFile(file))
       return NextResponse.json({ error: "invalid" }, { status: 400 });
+    // Pre-upload guard: hostile mode/duration must 400 BEFORE any bucket
+    // write, otherwise the 400 orphans a storage object.
+    const mode = String(fd.get("mode") ?? "soft");
+    const duration_sec = Number(fd.get("duration_sec") ?? 30);
+    const pre = validateListing({ mode, durationSec: duration_sec });
+    if (!pre.ok)
+      return NextResponse.json({ error: pre.error }, { status: 400 });
     const check = validateImageFile({
       name: file.name,
       type: file.type,
@@ -60,13 +67,17 @@ export async function POST(req: Request) {
     } = adminDb().storage.from(BUCKET).getPublicUrl(path);
     input = {
       room_id, title, img_url: publicUrl, start_price,
-      mode: String(fd.get("mode") ?? "soft"),
-      duration_sec: Number(fd.get("duration_sec") ?? 30),
+      mode, duration_sec,
     };
   } else {
     const body = await req.json();
     if (!body.room_id || !body.title || !body.img_url || !(body.start_price > 0))
       return NextResponse.json({ error: "invalid" }, { status: 400 });
+    // Same pre-write guard on the JSON path (no upload here, but reject
+    // hostile mode/duration before the DB insert).
+    const pre = validateListing({ mode: body?.mode ?? "soft", durationSec: Number(body?.duration_sec ?? 30) });
+    if (!pre.ok)
+      return NextResponse.json({ error: pre.error }, { status: 400 });
     input = {
       room_id: body.room_id, title: body.title, img_url: body.img_url, start_price: body.start_price,
       mode: body?.mode ?? "soft",
