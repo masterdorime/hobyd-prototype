@@ -76,6 +76,11 @@ export default function SellPage({
     setBusy(true);
     try {
       setStage("room");
+      // NOTE: the preview room is created before the image upload, so an
+      // upload failure leaves an orphan preview room ("Starting soon" in
+      // the lobby). Delete it manually in Supabase (Table Editor → rooms).
+      // Auto-expiry/cleanup is explicitly out of scope for the pilot (YAGNI)
+      // — no DELETE route is added for this.
       const rr = await fetch("/api/rooms", {
         method: "POST",
         headers: { "content-type": "application/json" },
