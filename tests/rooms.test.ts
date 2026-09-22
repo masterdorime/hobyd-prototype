@@ -49,6 +49,6 @@ test("GET /api/rooms/[id] selects explicit columns only (no select *)", async ()
     }),
   } as any);
   const res = await roomGET(new Request("http://localhost/"), { params: Promise.resolve({ id }) } as any);
-  expect(cols).toBe("id,title,seller_name,owner_id,status,thumbnail_url,created_at");
+  expect(cols).toBe("id,title,seller_name,owner_id,status,category,thumbnail_url,created_at");
   expect(await res.json()).toEqual(row);
 });
