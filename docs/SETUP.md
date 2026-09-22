@@ -228,3 +228,13 @@ The lobby (`/id`) lists `lobby`+`live` rooms; the live page is
   ```sql
   update rooms set owner_id = '<auth-user-uuid>' where id = '<room-uuid>';
   ```
+
+## 10. Auction modes + category gate migration (2026-09-23)
+
+Apply the trailing `2026-09-23 auction modes + category gate` section of
+`supabase/schema.sql` in the SQL editor (it is `if not exists`-safe, like
+the livestream section in §1.2). Backfill behavior: existing items get
+`auction_mode = 'soft'` / `duration_sec = 30` via the column defaults (no
+manual step); existing rooms get `category = null` — the seller picks a
+category on the live page before bidding opens. No RLS/Realtime changes
+needed.

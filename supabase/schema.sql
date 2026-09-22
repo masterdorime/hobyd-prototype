@@ -247,3 +247,81 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- 2026-09-23 auction modes + category gate.
+alter table items add column if not exists auction_mode text not null default 'soft'
+  check (auction_mode in ('soft','hard'));
+alter table items add column if not exists duration_sec int not null default 30
+  check (duration_sec between 10 and 300);
+alter table rooms add column if not exists category text
+  check (category in ('Sneakers','TCG','Vintage Clothing','Electronics'));
+
+create or replace function place_bid(p_item_id uuid, p_bidder uuid, p_amount int, p_max_extensions int, p_mode text, p_window_secs int, p_add_secs int)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_now timestamptz := now();
+  v_item items%rowtype;
+  v_bid bids%rowtype;
+  v_extended boolean := false;
+begin
+  if p_item_id is null or p_bidder is null or p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('ok', false, 'error', 'invalid');
+  end if;
+  if p_max_extensions is null or p_max_extensions < 0 then
+    return jsonb_build_object('ok', false, 'error', 'invalid');
+  end if;
+  if p_mode is null or p_mode not in ('soft','hard') then
+    return jsonb_build_object('ok', false, 'error', 'invalid');
+  end if;
+  if p_window_secs is null or p_window_secs < 0 or p_add_secs is null or p_add_secs < 0 then
+    return jsonb_build_object('ok', false, 'error', 'invalid');
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(p_item_id::text));
+
+  select * into v_item from items where id = p_item_id for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'closed');
+  end if;
+  if v_item.status = 'closed' or v_now > v_item.ends_at then
+    return jsonb_build_object('ok', false, 'error', 'closed');
+  end if;
+  if p_amount <= v_item.current_price then
+    return jsonb_build_object('ok', false, 'error', 'too_low');
+  end if;
+  if exists (select 1 from bids
+             where item_id = p_item_id and bidder = p_bidder
+               and created_at > v_now - interval '1 second') then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited');
+  end if;
+
+  insert into bids (item_id, bidder, amount)
+  values (p_item_id, p_bidder, p_amount)
+  returning * into v_bid;
+
+  -- Anti-sniping runs ONLY in soft mode (hard close: clock never moves).
+  if p_mode = 'soft'
+     and v_item.ends_at - v_now >= interval '0 seconds'
+     and v_item.ends_at - v_now < make_interval(secs => p_window_secs)
+     and v_item.extensions_used < p_max_extensions then
+    v_extended := true;
+    update items set
+      current_price = p_amount,
+      ends_at = v_item.ends_at + make_interval(secs => p_add_secs),
+      extensions_used = v_item.extensions_used + 1,
+      status = 'extended'
+    where id = p_item_id;
+  else
+    update items set current_price = p_amount where id = p_item_id;
+  end if;
+
+  return jsonb_build_object('ok', true, 'bid', row_to_json(v_bid), 'extended', v_extended);
+end;
+$$;
+
+revoke all on function place_bid(uuid, uuid, int, int, text, int, int) from public, anon, authenticated;
+grant all on function place_bid(uuid, uuid, int, int, text, int, int) to service_role;
