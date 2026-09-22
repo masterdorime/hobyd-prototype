@@ -33,6 +33,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   const db = adminDb();
 
+  const { data: itemRow } = await db.from("items").select("auction_mode").eq("id", item_id).single();
+  const mode = (itemRow as { auction_mode?: string } | null)?.auction_mode === "hard" ? "hard" : "soft";
   // C1: ONE atomic transaction — advisory lock → row lock → validate →
   // rate-limit → insert → price/extension patch all inside place_bid().
   // nowMs is recomputed inside the txn (M1); the JS clock is not trusted.
@@ -43,6 +45,9 @@ export async function POST(req: Request) {
     p_bidder: user.id,
     p_amount: amount,
     p_max_extensions: env.maxExtensions(),
+    p_mode: mode,
+    p_window_secs: env.extensionWindowSecs(),
+    p_add_secs: env.extensionAddSecs(),
   });
   // I3: fail-closed — any rpc-level failure never confirms an unknown bid.
   if (error || !data || typeof data !== "object")

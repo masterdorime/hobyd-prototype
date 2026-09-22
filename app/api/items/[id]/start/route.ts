@@ -3,7 +3,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/supabase/admin";
 import { requireUser } from "@/lib/auth";
-import { env } from "@/lib/env";
 import { isUuid } from "@/lib/stream";
 import { buildStartUpdate } from "@/lib/auction";
 
@@ -13,9 +12,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const user = await requireUser().catch(() => null);
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const db = adminDb();
-  const { data: item } = await db.from("items").select("id,room_id,status").eq("id", id).single();
+  const { data: item } = await db.from("items").select("id,room_id,status,duration_sec").eq("id", id).single();
   if (!item) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const it = item as { room_id: string; status: string };
+  const it = item as { room_id: string; status: string; duration_sec: number };
   const { data: room } = await db.from("rooms").select("owner_id").eq("id", it.room_id).single();
   if (!room || (room as { owner_id: string | null }).owner_id !== user.id)
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -24,7 +23,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   if (it.status !== "lobby")
     return NextResponse.json({ error: "illegal_transition" }, { status: 409 });
   const { data, error } = await db.from("items")
-    .update(buildStartUpdate(Date.now(), env.auctionSecs())).eq("id", id).select().single();
+    .update(buildStartUpdate(Date.now(), it.duration_sec)).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: "start_failed" }, { status: 500 });
   return NextResponse.json(data);
 }

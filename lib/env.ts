@@ -36,4 +36,8 @@ export const env = {
     parseInt(req("AUCTION_DURATION_SEC", process.env.AUCTION_DURATION_SEC), 10),
   paySecs: () =>
     parseInt(req("PAYMENT_WINDOW_SEC", process.env.PAYMENT_WINDOW_SEC), 10),
+  extensionWindowSecs: () =>
+    parseInt(process.env.EXTENSION_WINDOW_SEC ?? "10", 10),
+  extensionAddSecs: () =>
+    parseInt(process.env.EXTENSION_ADD_SEC ?? "10", 10),
 };
