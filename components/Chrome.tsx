@@ -64,6 +64,12 @@ export function Chrome({
               <span className="opacity-70">Live Auction</span>
             </Link>
             <div className="flex items-center gap-3">
+              <Link
+                href={`/${locale}/sell`}
+                className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
+              >
+                Sell
+              </Link>
               <LocaleToggle locale={locale} />
               {email ? (
                 <span className="flex items-center gap-2">
