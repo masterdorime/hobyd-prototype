@@ -38,7 +38,10 @@ export default function Login({
           ? await db.auth.signInWithPassword({ email, password })
           : await db.auth.signUp({ email, password });
       if (error) setErr(error.message);
-      else router.push(loginTarget(locale));
+      else {
+        router.push(loginTarget(locale));
+        router.refresh();
+      }
     } catch (e) {
       setErr(toErrorMessage(e));
     }

@@ -32,5 +32,6 @@
   "password": "Kata sandi",
   "signin": "Masuk",
   "signup": "Daftar",
+  "signout": "Keluar",
   "footerNote": "Demo percontohan HOBYD — pembayaran sandbox, bukan uang sungguhan."
 }

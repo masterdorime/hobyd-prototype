@@ -32,5 +32,6 @@
   "password": "Password",
   "signin": "Sign in",
   "signup": "Sign up",
+  "signout": "Sign out",
   "footerNote": "HOBYD pilot demo — sandbox payments, no real money."
 }

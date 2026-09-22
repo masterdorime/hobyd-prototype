@@ -1,13 +1,18 @@
 // components/Chrome.tsx — translucent app shell (Task 11, visual-only).
 // Sticky blurred header (content scrolls under) with the wordmark left and
-// locale toggle + login link right; simple footer with the demo disclaimer.
+// locale toggle + session-aware auth control right; simple footer with the
+// demo disclaimer. The header subscribes to Supabase auth state so a
+// signed-in user sees their email + sign-out instead of the login link.
 // MotionConfig reducedMotion="user" is the library-level kill-switch for
 // springs/slides; per-component transitions still branch explicitly.
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { MotionConfig } from "motion/react";
 import { LocaleToggle } from "@/components/LocaleToggle";
+import { browserDb } from "@/lib/supabase/client";
 
 export function Chrome({
   locale,
@@ -17,6 +22,35 @@ export function Chrome({
   children: React.ReactNode;
 }) {
   const t = useTranslations();
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    try {
+      const db = browserDb();
+      db.auth.getUser().then(({ data }) => {
+        if (live) setEmail(data.user?.email ?? null);
+      });
+      const { data: sub } = db.auth.onAuthStateChange((_event, session) => {
+        setEmail(session?.user?.email ?? null);
+      });
+      return () => {
+        live = false;
+        sub.subscription.unsubscribe();
+      };
+    } catch {
+      // Env/client unavailable — stay in logged-out state.
+      return undefined;
+    }
+  }, []);
+  async function signOut() {
+    try {
+      await browserDb().auth.signOut();
+    } finally {
+      setEmail(null);
+      router.refresh();
+    }
+  }
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex min-h-dvh flex-col bg-canvas text-white">
@@ -31,12 +65,26 @@ export function Chrome({
             </Link>
             <div className="flex items-center gap-3">
               <LocaleToggle locale={locale} />
-              <Link
-                href={`/${locale}/login`}
-                className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
-              >
-                {t("login")}
-              </Link>
+              {email ? (
+                <span className="flex items-center gap-2">
+                  <span className="max-w-32 truncate text-sm opacity-70">
+                    {email}
+                  </span>
+                  <button
+                    onClick={signOut}
+                    className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
+                  >
+                    {t("signout")}
+                  </button>
+                </span>
+              ) : (
+                <Link
+                  href={`/${locale}/login`}
+                  className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
+                >
+                  {t("login")}
+                </Link>
+              )}
             </div>
           </div>
         </header>
