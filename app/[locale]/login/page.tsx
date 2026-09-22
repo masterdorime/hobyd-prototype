@@ -18,6 +18,10 @@ export function toErrorMessage(e: unknown): string {
   return "Unknown error";
 }
 
+export function isEmailNotConfirmed(message: string): boolean {
+  return /email not confirmed/i.test(message);
+}
+
 export default function Login({
   params,
 }: {
@@ -29,18 +33,47 @@ export default function Login({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  async function go(mode: "in" | "up") {
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  async function resend() {
+    if (resending || !email.trim()) return;
+    setResending(true);
     setErr(null);
     try {
-      const db = browserDb();
-      const { error } =
-        mode === "in"
-          ? await db.auth.signInWithPassword({ email, password })
-          : await db.auth.signUp({ email, password });
+      const { error } = await browserDb().auth.resend({ type: "signup", email: email.trim() });
       if (error) setErr(error.message);
-      else {
+      else setNotice("resendSent");
+    } catch (e) {
+      setErr(toErrorMessage(e));
+    } finally {
+      setResending(false);
+    }
+  }
+  async function go(mode: "in" | "up") {
+    setErr(null);
+    setNotice(null);
+    try {
+      const db = browserDb();
+      if (mode === "in") {
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) {
+          if (isEmailNotConfirmed(error.message)) setNotice("emailNotConfirmed");
+          else setErr(error.message);
+        } else {
+          router.push(loginTarget(locale));
+          router.refresh();
+        }
+        return;
+      }
+      const { data, error } = await db.auth.signUp({ email, password });
+      if (error) {
+        if (isEmailNotConfirmed(error.message)) setNotice("emailNotConfirmed");
+        else setErr(error.message);
+      } else if (data.session) {
         router.push(loginTarget(locale));
         router.refresh();
+      } else {
+        setNotice("verifyEmail");
       }
     } catch (e) {
       setErr(toErrorMessage(e));
@@ -82,6 +115,21 @@ export default function Login({
           <p role="alert" className="text-sm text-red-400">
             {err}
           </p>
+        )}
+        {notice && (
+          <div className="flex flex-col gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3">
+            <p role="status" className="text-sm text-emerald-200">
+              {t(notice)}
+            </p>
+            <button
+              type="button"
+              onClick={resend}
+              disabled={resending}
+              className="pressable self-start rounded-full border border-emerald-300/30 px-3 py-1 text-xs text-emerald-100 disabled:opacity-50"
+            >
+              {t("resendEmail")}
+            </button>
+          </div>
         )}
         <div className="mt-1 flex gap-2">
           <button
