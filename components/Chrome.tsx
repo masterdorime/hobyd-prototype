@@ -24,6 +24,7 @@ export function Chrome({
   const t = useTranslations();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [goingLive, setGoingLive] = useState(false);
   useEffect(() => {
     let live = true;
     try {
@@ -51,6 +52,23 @@ export function Chrome({
       router.refresh();
     }
   }
+  async function goLive() {
+    if (goingLive) return;
+    setGoingLive(true);
+    try {
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.id) router.push(`/${locale}/live/${body.id}`);
+    } catch {
+      /* stay on lobby — room POST reports via lobby fetch */
+    } finally {
+      setGoingLive(false);
+    }
+  }
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex min-h-dvh flex-col bg-canvas text-white">
@@ -70,6 +88,16 @@ export function Chrome({
               >
                 Sell
               </Link>
+              {email && (
+                <button
+                  type="button"
+                  onClick={goLive}
+                  disabled={goingLive}
+                  className="pressable rounded-full bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-50"
+                >
+                  {t("goLive")}
+                </button>
+              )}
               <LocaleToggle locale={locale} />
               {email ? (
                 <span className="flex items-center gap-2">

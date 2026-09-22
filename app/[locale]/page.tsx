@@ -13,7 +13,7 @@ import { NeuCard } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spotlight } from "@/components/effects/Spotlight";
 
-type Room = { id: string; title: string; status: string };
+type Room = { id: string; title: string; status: string; thumbnail_url?: string | null };
 
 const CATS: Category[] = ["all", "pokemon", "diecast", "sneakers"];
 
@@ -106,6 +106,14 @@ export default function LobbyPage({
               transition={{ ...enter.transition, delay: Math.min(i * 0.05, 0.3) }}
             >
               <NeuCard className="flex flex-col gap-2 p-4">
+                {r.thumbnail_url && (
+                  <img
+                    src={r.thumbnail_url}
+                    alt={r.title}
+                    loading="lazy"
+                    className="h-32 w-full rounded-xl object-cover"
+                  />
+                )}
                 <p className="font-semibold tracking-tight">{r.title}</p>
                 <Badge tone={toneFor(r.status)}>
                   {r.status === "live" && <span className="live-dot" />}

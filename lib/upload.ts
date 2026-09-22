@@ -22,6 +22,15 @@ export function validateImageFile(o: {
   return { ok: true };
 }
 
+export function isUploadFile(v: unknown): v is File {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as File).arrayBuffer === "function" &&
+    typeof (v as File).name === "string"
+  );
+}
+
 export function itemImagePath(roomId: string, type: string): string {
   const ext = EXT[type] ?? "jpg";
   const rand =

@@ -1,5 +1,5 @@
 // lib/rooms.ts — lobby category filter (pure, tested).
-export type LobbyRoom = { id: string; title: string; status: string };
+export type LobbyRoom = { id: string; title: string; status: string; thumbnail_url?: string | null };
 export type Category = "all" | "pokemon" | "diecast" | "sneakers";
 
 const HINTS: Record<Exclude<Category, "all">, string[]> = {

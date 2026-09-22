@@ -13,6 +13,7 @@ import { StreamControls } from "@/components/StreamControls";
 import { ChatPanel } from "@/components/ChatPanel";
 import { Leaderboard } from "@/components/Leaderboard";
 import { ListItemForm } from "@/components/ListItemForm";
+import { ThumbnailSetter } from "@/components/ThumbnailSetter";
 import { NeuCard } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CountUp } from "@/components/effects/CountUp";
@@ -194,8 +195,9 @@ export default function LivePage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="min-w-0">
           {isOwner && room && (
-            <div className="mb-3">
+            <div className="mb-3 flex flex-col gap-2">
               <StreamControls roomId={roomId} roomStatus={room.status} activeItemId={activeId} onChange={(s) => setRoom((r) => r && { ...r, status: s })} />
+              {roomStatus !== "ended" && <ThumbnailSetter roomId={roomId} />}
             </div>
           )}
           <div className="relative overflow-hidden rounded-2xl">
