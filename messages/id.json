@@ -56,6 +56,8 @@
   "publishCam": "Nyalakan kamera",
   "publishing": "Menyiarkan…",
   "camBlocked": "Kamera atau mic diblokir — izinkan akses lalu coba lagi.",
+  "noDevice": "Tidak ada kamera atau mic di perangkat ini.",
+  "camInUse": "Kamera atau mic sedang dipakai aplikasi lain — tutup lalu coba lagi.",
   "retry": "Coba lagi",
   "mic": "Mic",
   "cam": "Kamera",

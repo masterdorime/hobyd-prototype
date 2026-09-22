@@ -10,9 +10,10 @@ import {
   type LocalVideoTrack,
 } from "livekit-client";
 import { Badge } from "@/components/ui/badge";
+import { classifyMediaError, type MediaFailure } from "@/lib/media";
 import { cn } from "@/lib/ui";
 
-type PreviewTracks = { video: LocalVideoTrack; audio: LocalAudioTrack };
+type PreviewTracks = { video: LocalVideoTrack | null; audio: LocalAudioTrack | null };
 
 export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canPublish?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -25,11 +26,13 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
   const tracksRef = useRef<PreviewTracks | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
+  const [hasVideo, setHasVideo] = useState(true);
+  const [hasAudio, setHasAudio] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [live, setLive] = useState(false);
-  const [blocked, setBlocked] = useState(false);
+  const [failure, setFailure] = useState<MediaFailure | null>(null);
 
   // Viewer path — subscribe-only, byte-for-byte the original flow.
   useEffect(() => {
@@ -57,31 +60,43 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
     };
   }, [roomId, canPublish]);
 
-  // Publisher path — build local tracks and attach a muted self-preview.
+  // Publisher path — video and audio are created independently so one
+  // missing/busy device doesn't kill the other; at least one track is
+  // required, otherwise the failure is classified for a precise hint.
   useEffect(() => {
     if (!canPublish) return;
     let cancelled = false;
-    setBlocked(false);
+    setFailure(null);
     setPreviewReady(false);
     (async () => {
-      try {
-        const [video, audio] = await Promise.all([
-          createLocalVideoTrack(),
-          createLocalAudioTrack(),
-        ]);
-        if (cancelled) {
-          video.stop();
-          audio.stop();
-          return;
-        }
-        tracksRef.current = { video, audio };
-        const el = video.attach();
+      const [video, audio] = await Promise.all([
+        createLocalVideoTrack().catch((e) => ({ error: e as unknown })),
+        createLocalAudioTrack().catch((e) => ({ error: e as unknown })),
+      ]);
+      if (cancelled) {
+        if (!("error" in video)) video.stop();
+        if (!("error" in audio)) audio.stop();
+        return;
+      }
+      const v = "error" in video ? null : video;
+      const a = "error" in audio ? null : audio;
+      if (!v && !a) {
+        setFailure(classifyMediaError(
+          "error" in video ? video.error : (audio as { error: unknown }).error,
+        ));
+        return;
+      }
+      tracksRef.current = { video: v, audio: a };
+      setHasVideo(!!v);
+      setHasAudio(!!a);
+      if (!v) setCamOn(false);
+      if (!a) setMicOn(false);
+      if (v) {
+        const el = v.attach();
         el.muted = true;
         ref.current?.appendChild(el);
-        setPreviewReady(true);
-      } catch {
-        if (!cancelled) setBlocked(true);
       }
+      setPreviewReady(true);
     })();
     return () => {
       cancelled = true;
@@ -90,8 +105,8 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
       const tr = tracksRef.current;
       tracksRef.current = null;
       room?.disconnect();
-      tr?.video.stop();
-      tr?.audio.stop();
+      tr?.video?.stop();
+      tr?.audio?.stop();
       if (ref.current) ref.current.innerHTML = "";
     };
   }, [canPublish, roomId, attempt]);
@@ -105,18 +120,18 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
   }
 
   function toggleCam() {
-    const tr = tracksRef.current;
-    if (!tr) return;
-    if (camOn) tr.video.mute();
-    else tr.video.unmute();
+    const video = tracksRef.current?.video;
+    if (!video) return;
+    if (camOn) video.mute();
+    else video.unmute();
     setCamOn(!camOn);
   }
 
   function toggleMic() {
-    const tr = tracksRef.current;
-    if (!tr) return;
-    if (micOn) tr.audio.mute();
-    else tr.audio.unmute();
+    const audio = tracksRef.current?.audio;
+    if (!audio) return;
+    if (micOn) audio.mute();
+    else audio.unmute();
     setMicOn(!micOn);
   }
 
@@ -137,8 +152,8 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
         setDown(true);
       });
       await room.connect(tok.url, tok.token);
-      await room.localParticipant.publishTrack(tr.video);
-      await room.localParticipant.publishTrack(tr.audio);
+      if (tr.video) await room.localParticipant.publishTrack(tr.video);
+      if (tr.audio) await room.localParticipant.publishTrack(tr.audio);
       setLive(true);
     } catch {
       setDown(true);
@@ -161,9 +176,11 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
           </Badge>
         </div>
       </div>
-      {blocked ? (
+      {failure ? (
         <div className="flex flex-col gap-2">
-          <p role="alert" className="text-sm text-red-400">{t("camBlocked")}</p>
+          <p role="alert" className="text-sm text-red-400">
+            {t(failure === "nodevice" ? "noDevice" : failure === "inuse" ? "camInUse" : "camBlocked")}
+          </p>
           <button
             type="button"
             onClick={() => setAttempt((a) => a + 1)}
@@ -177,7 +194,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
           <button
             type="button"
             onClick={toggleCam}
-            disabled={!previewReady}
+            disabled={!previewReady || !hasVideo}
             aria-pressed={camOn}
             className={cn(
               "pressable rounded-full border px-4 py-2 text-sm disabled:opacity-50",
@@ -189,7 +206,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
           <button
             type="button"
             onClick={toggleMic}
-            disabled={!previewReady}
+            disabled={!previewReady || !hasAudio}
             aria-pressed={micOn}
             className={cn(
               "pressable rounded-full border px-4 py-2 text-sm disabled:opacity-50",
