@@ -10,6 +10,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
 import { uiSpring, useEnter } from "@/lib/motion";
+import { CountUp } from "@/components/effects/CountUp";
+import { Badge } from "@/components/ui/badge";
 
 type Item = {
   id: string;
@@ -72,13 +74,17 @@ export default function WinPage({
             animate={enter.animate}
             exit={enter.initial}
             transition={enter.transition}
-            className="relative flex w-full max-w-md flex-col gap-2 rounded-2xl border border-white/10 bg-overlay p-4 shadow-2xl shadow-black/60 sm:p-6"
+            className="relative flex w-full max-w-md flex-col gap-2 overflow-hidden rounded-2xl border border-white/10 bg-overlay p-4 shadow-2xl shadow-black/60 sm:p-6"
           >
+            <div aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
+            <Badge tone="live">ITEM WON</Badge>
             <h2 id="win-title" className="display text-lg font-semibold">
               {item.title}
             </h2>
-            <p className="tnum">Rp{item.current_price.toLocaleString("id-ID")}</p>
-            <p className="text-sm opacity-80">
+            <p className="text-lg">
+              <CountUp value={item.current_price} />
+            </p>
+            <p className="tnum text-sm opacity-80">
               {t("winner")}: {order.winner}
             </p>
             <Link

@@ -10,6 +10,10 @@
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { NeuCard } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { countdownParts } from "@/lib/format";
+import { cn } from "@/lib/ui";
 
 // Mirrors PAYMENT_WINDOW_SEC in .env.example (300 = 5:00). Server env is not
 // NEXT_PUBLIC_, so the client cannot read it; keep in sync with the example.
@@ -105,7 +109,8 @@ export default function PayPage({
   if (!loaded)
     return (
       <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
-        <p className="text-sm opacity-70">{t("loadingPayment")}</p>
+        <div className="skeleton h-64 rounded-2xl" aria-hidden />
+        <p className="mt-3 text-sm opacity-70">{t("loadingPayment")}</p>
       </main>
     );
   if (!order)
@@ -138,13 +143,32 @@ export default function PayPage({
       </main>
     );
 
+  const { m, s } = countdownParts(left);
+  const steps = [t("pay"), "QRIS", t("paidConfirm")];
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
-      <p className="text-sm uppercase tracking-wide opacity-60">{t("pay")}</p>
-      <h1 className="display mt-1 text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
-      <section className="mt-6 flex flex-col gap-2 rounded-2xl border border-white/10 bg-overlay p-4 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-6">
-        <p className="text-sm">Order {order.id}</p>
-        <p className="text-sm opacity-80">Item {order.item_id}</p>
+      <Badge tone="ending">
+        {t("pay")} · {m}:{s}
+      </Badge>
+      <h1 className="display mt-2 text-2xl font-bold sm:text-3xl">{t("payTitle")}</h1>
+      <ol className="mt-4 flex items-center gap-2 text-xs" aria-label="progress">
+        {steps.map((s, i) => (
+          <li key={s} className="flex items-center gap-2">
+            <span
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold",
+                i <= 1 ? "bg-accent text-accent-ink" : "bg-white/10 text-white/60",
+              )}
+            >
+              {i + 1}
+            </span>
+            <span className={cn("max-w-24 truncate", i > 1 && "opacity-50")}>{s}</span>
+          </li>
+        ))}
+      </ol>
+      <NeuCard className="mt-4 flex flex-col gap-2 p-4 sm:p-6">
+        <p className="tnum text-sm">Order {order.id}</p>
+        <p className="tnum text-sm opacity-80">Item {order.item_id}</p>
         <p className="tnum text-sm">
           {t("payWithin")}: {fmt(left)}
         </p>
@@ -168,7 +192,7 @@ export default function PayPage({
             {confirmError}
           </p>
         )}
-      </section>
+      </NeuCard>
     </main>
   );
 }
