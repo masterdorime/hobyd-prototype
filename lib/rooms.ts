@@ -8,12 +8,13 @@ const HINTS: Record<Exclude<Category, "all">, string[]> = {
   sneakers: ["sneaker", "nike", "jordan", "dunk"],
 };
 
-export function buildRoomRow(o: { title: string; seller_name: string }): {
+export function buildRoomRow(o: { title: string; seller_name: string; owner_id: string }): {
   title: string;
   seller_name: string;
+  owner_id: string;
   status: string;
 } {
-  return { title: o.title, seller_name: o.seller_name, status: "live" };
+  return { title: o.title, seller_name: o.seller_name, owner_id: o.owner_id, status: "preview" };
 }
 
 export function filterRooms(rooms: LobbyRoom[], cat: string): LobbyRoom[] {

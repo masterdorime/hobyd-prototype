@@ -17,10 +17,11 @@ test("unknown category returns everything", () => {
   expect(filterRooms(rooms, "sneakers")).toHaveLength(2);
 });
 
-test("buildRoomRow opens a live room for the seller", () => {
-  expect(buildRoomRow({ title: "HOBYD Live", seller_name: "s@hobyd.id" })).toEqual({
+test("buildRoomRow opens a preview room for any signed-in user", () => {
+  expect(buildRoomRow({ title: "HOBYD Live", seller_name: "s@hobyd.id", owner_id: "u1" })).toEqual({
     title: "HOBYD Live",
     seller_name: "s@hobyd.id",
-    status: "live",
+    owner_id: "u1",
+    status: "preview",
   });
 });
