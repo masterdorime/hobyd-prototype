@@ -1,4 +1,10 @@
+import { vi } from "vitest";
 import { buildRoomRow, filterRooms, type LobbyRoom } from "../lib/rooms";
+
+vi.mock("@/lib/supabase/admin", () => ({ adminDb: vi.fn() }));
+
+import { adminDb } from "@/lib/supabase/admin";
+import { GET as roomGET } from "../app/api/rooms/[id]/route";
 
 const rooms: LobbyRoom[] = [
   { id: "1", title: "Charizard Holo PSA 9", status: "live" },
@@ -24,4 +30,21 @@ test("buildRoomRow opens a preview room for any signed-in user", () => {
     owner_id: "u1",
     status: "preview",
   });
+});
+
+test("GET /api/rooms/[id] selects explicit columns only (no select *)", async () => {
+  const id = "123e4567-e89b-12d3-a456-426614174000";
+  const row = { id, title: "T", seller_name: "S", owner_id: "u1", status: "live", created_at: "2026-09-22T00:00:00Z" };
+  let cols = "";
+  vi.mocked(adminDb).mockReturnValue({
+    from: () => ({
+      select: (c: string) => {
+        cols = c;
+        return { eq: () => ({ single: async () => ({ data: row }) }) };
+      },
+    }),
+  } as any);
+  const res = await roomGET(new Request("http://localhost/"), { params: Promise.resolve({ id }) } as any);
+  expect(cols).toBe("id,title,seller_name,owner_id,status,created_at");
+  expect(await res.json()).toEqual(row);
 });

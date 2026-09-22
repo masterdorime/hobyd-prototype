@@ -6,7 +6,10 @@ import { isUuid } from "@/lib/stream";
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   if (!isUuid(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const { data } = await adminDb().from("rooms").select("*").eq("id", id).single();
+  // Explicit columns only: callers (watch page) need owner_id + status;
+  // never leak wider rows through the public read.
+  const { data } = await adminDb().from("rooms")
+    .select("id,title,seller_name,owner_id,status,created_at").eq("id", id).single();
   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
   return NextResponse.json(data);
 }
