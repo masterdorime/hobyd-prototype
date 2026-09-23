@@ -36,12 +36,14 @@ export function LiveVideo({
   contain = false,
   fill = false,
   onVideoSize,
+  onViewers,
 }: {
   roomId: string;
   canPublish?: boolean;
   contain?: boolean;
   fill?: boolean;
   onVideoSize?: (w: number, h: number) => void;
+  onViewers?: (n: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const t = useTranslations();
@@ -56,6 +58,8 @@ export function LiveVideo({
   const sizeRef = useRef(onVideoSize);
   sizeRef.current = onVideoSize;
   const reportSize = (w: number, h: number) => sizeRef.current?.(w, h);
+  const viewRef = useRef(onViewers);
+  viewRef.current = onViewers;
   const [attempt, setAttempt] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
   const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | null>(null);
@@ -78,6 +82,9 @@ export function LiveVideo({
         if (cancelled) return;
         room = new Room();
         room.on("disconnected", () => { if (!cancelled) setDown(true); });
+        const report = () => viewRef.current?.(room ? room.remoteParticipants.size + 1 : 1);
+        room.on("participantConnected", report);
+        room.on("participantDisconnected", report);
         // NOTE: audio must be attached too — subscribing without attach
         // meant remote mic audio arrived but never played (silent viewers).
         room.on("trackSubscribed", (track) => {
@@ -89,6 +96,8 @@ export function LiveVideo({
           }
         });
         await room.connect(t.url, t.token);
+        if (cancelled) return;
+        report();
         room.remoteParticipants.forEach((p) =>
           p.trackPublications.forEach((pub) => {
             const tr = pub.track;
@@ -205,7 +214,11 @@ export function LiveVideo({
         setLive(false);
         setDown(true);
       });
+      const report = () => viewRef.current?.(room.remoteParticipants.size + 1);
+      room.on("participantConnected", report);
+      room.on("participantDisconnected", report);
       await room.connect(tok.url, tok.token);
+      report();
       if (tr.video) await room.localParticipant.publishTrack(tr.video);
       if (tr.audio) await room.localParticipant.publishTrack(tr.audio);
       setLive(true);

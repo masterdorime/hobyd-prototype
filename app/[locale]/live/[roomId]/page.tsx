@@ -5,6 +5,7 @@
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { LiveVideo } from "@/components/LiveVideo";
 import { BidFeed } from "@/components/BidFeed";
@@ -12,6 +13,7 @@ import { BidForm } from "@/components/BidForm";
 import { StreamControls } from "@/components/StreamControls";
 import { ChatPanel } from "@/components/ChatPanel";
 import { Leaderboard } from "@/components/Leaderboard";
+import { WinnerPill } from "@/components/WinnerPill";
 import { ListItemForm } from "@/components/ListItemForm";
 import { ThumbnailSetter } from "@/components/ThumbnailSetter";
 import { NeuCard } from "@/components/ui/card";
@@ -21,6 +23,7 @@ import { browserDb } from "@/lib/supabase/client";
 import {
   bidErrorMessage,
   countdownParts,
+  elapsedParts,
   isUrgent,
 } from "@/lib/format";
 import { cn } from "@/lib/ui";
@@ -47,19 +50,39 @@ export default function LivePage({
 }) {
   const { locale, roomId } = use(params);
   const t = useTranslations();
+  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
-  const [room, setRoom] = useState<{ owner_id: string | null; status: string; category: string | null } | null>(null);
+  const [room, setRoom] = useState<{
+    owner_id: string | null;
+    status: string;
+    category: string | null;
+    title: string;
+    seller_name: string;
+    created_at: string;
+  } | null>(null);
   const [me, setMe] = useState<string | null>(null);
+  const [viewers, setViewers] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [armClose, setArmClose] = useState<string | null>(null);
   const [catMsg, setCatMsg] = useState(false);
   const [acting, setActing] = useState(false);
   const [theater, setTheater] = useState(false);
   const [vidPortrait, setVidPortrait] = useState(false);
   const closeFired = useRef<Set<string>>(new Set());
+
+  // Mobile (<md) viewer layout is a separate overlay stack — one matchMedia
+  // source of truth, shared by the box, the aside, and the stack itself.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const f = () => setIsMobile(mq.matches);
+    f();
+    mq.addEventListener("change", f);
+    return () => mq.removeEventListener("change", f);
+  }, []);
 
   // A new room means a new stream — drop the previous orientation verdict.
   useEffect(() => { setVidPortrait(false); }, [roomId]);
@@ -102,8 +125,16 @@ export default function LivePage({
   useEffect(() => {
     fetch(`/api/rooms/${encodeURIComponent(roomId)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((row) => row && setRoom({ owner_id: row.owner_id ?? null, status: row.status, category: row.category ?? null }))
+      .then((row) => row && setRoom({
+        owner_id: row.owner_id ?? null,
+        status: row.status,
+        category: row.category ?? null,
+        title: row.title ?? "HOBYD Live",
+        seller_name: row.seller_name ?? "",
+        created_at: row.created_at ?? new Date().toISOString(),
+      }))
       .catch(() => {});
+    setViewers(null);
     browserDb().auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)).catch(() => setMe(null));
     const db = browserDb();
     const ch = db.channel(`room-${roomId}`)
@@ -111,8 +142,13 @@ export default function LivePage({
         { event: "UPDATE", schema: "public", table: "rooms", filter: `id=eq.${roomId}` },
         (p) => setRoom((r) => {
           if (!r) return r;
-          const n = p.new as { status: string; category?: string | null };
-          return { ...r, status: n.status, category: "category" in n ? (n.category ?? null) : r.category };
+          const n = p.new as { status: string; category?: string | null; title?: string };
+          return {
+            ...r,
+            status: n.status,
+            category: "category" in n ? (n.category ?? null) : r.category,
+            title: "title" in n && typeof n.title === "string" ? n.title : r.title,
+          };
         }))
       .subscribe();
     return () => { db.removeChannel(ch); };
@@ -122,6 +158,11 @@ export default function LivePage({
   // LIVE badge or mounting LiveVideo for a room that may be preview/ended.
   const roomStatus = room?.status ?? "loading";
   const isOwner = !!me && !!room && me === room.owner_id;
+  // Mobile viewers get the immersive overlay stack; owners keep the stacked
+  // scroll layout (they need controls, not immersion).
+  const mobileViewer = isMobile && !isOwner;
+  const sellerInitial = (room?.seller_name.trim().charAt(0) ?? "?").toUpperCase() || "?";
+  const streamMs = room ? now - new Date(room.created_at).getTime() : 0;
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -264,8 +305,10 @@ export default function LivePage({
               "bg-black",
               theater
                 ? "fixed inset-0 z-50 flex flex-col p-4"
-                : "relative overflow-hidden rounded-2xl",
-              !theater && vidPortrait && "mx-auto aspect-[9/16] h-[75dvh] max-w-full",
+                : mobileViewer
+                  ? "fixed inset-0 z-0"
+                  : "relative overflow-hidden rounded-2xl",
+              !theater && !mobileViewer && vidPortrait && "mx-auto aspect-[9/16] h-[75dvh] max-w-full",
             )}
           >
             {!room ? (
@@ -278,9 +321,10 @@ export default function LivePage({
                   key="owner-pub"
                   roomId={roomId}
                   canPublish
-                  contain={vidPortrait}
+                  contain={vidPortrait && !isMobile}
                   fill={theater}
                   onVideoSize={(w, h) => setVidPortrait(h > w)}
+                  onViewers={setViewers}
                 />
               ) : (
                 <div className="glass-panel flex h-64 items-center justify-center">
@@ -292,13 +336,14 @@ export default function LivePage({
                 key={isOwner ? "owner-pub" : "viewer"}
                 roomId={roomId}
                 canPublish={isOwner}
-                contain={vidPortrait}
+                contain={vidPortrait && !isMobile}
                 fill={theater}
                 onVideoSize={(w, h) => setVidPortrait(h > w)}
+                onViewers={setViewers}
               />
             )}
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-              {roomStatus === "live" && (
+              {roomStatus === "live" && !mobileViewer && (
                 <Badge tone="live">
                   <span className="live-dot" /> LIVE
                 </Badge>
@@ -314,7 +359,7 @@ export default function LivePage({
                 </span>
               )}
             </div>
-            {room && roomStatus !== "ended" && (
+            {room && roomStatus !== "ended" && !isMobile && (
               <div className="absolute bottom-0 right-0 p-3">
                 <button
                   type="button"
@@ -330,7 +375,7 @@ export default function LivePage({
               </div>
             )}
           </div>
-          {items.length > 0 && (items.length > 1 || isOwner) && (
+          {!mobileViewer && items.length > 0 && (items.length > 1 || isOwner) && (
             <ul className="mt-4 flex flex-col gap-2">
               {items.map((i) => {
                 const liveish =
@@ -396,7 +441,7 @@ export default function LivePage({
           )}
         </section>
         <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
-          {!loaded ? (
+          {!mobileViewer && (!loaded ? (
             <div className="skeleton h-72 rounded-2xl" aria-hidden />
           ) : !active ? (
             <p className="text-sm opacity-70">{t("waiting")}</p>
@@ -460,14 +505,113 @@ export default function LivePage({
                 <BidFeed itemId={active.id} />
               </div>
             </NeuCard>
-          )}
-          {loaded && active && (
+          ))}
+          {loaded && active && !mobileViewer && (
             <div className="glass-panel flex h-96 min-h-0 flex-col p-3 lg:h-auto lg:min-h-64 lg:flex-1">
               <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="panel" />
             </div>
           )}
         </aside>
       </div>
+      {mobileViewer && room && (
+        <>
+          <div className="fixed inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+            <div className="flex min-w-0 items-center gap-2 rounded-full bg-black/45 py-1 pl-1 pr-3 backdrop-blur-md">
+              <span
+                aria-hidden
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-ink"
+              >
+                {sellerInitial}
+              </span>
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate text-[13px] font-semibold text-white">
+                  {room.seller_name || room.title}
+                </span>
+                <span className="tnum flex items-center gap-1.5 text-[11px] text-white/80">
+                  <span className="live-dot" /> LIVE · {elapsedParts(streamMs)}
+                </span>
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {viewers != null && (
+                <span className="tnum rounded-full bg-black/45 px-3 py-1 text-xs text-white backdrop-blur-md">
+                  {viewers} {t("watching")}
+                </span>
+              )}
+              {biddingOpen && (
+                <span
+                  className={cn(
+                    "tnum rounded-full bg-black/45 px-3 py-1 text-xs backdrop-blur-md",
+                    urgent ? "font-semibold text-accent" : "text-white",
+                  )}
+                >
+                  {m}:{s}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => router.back()}
+                aria-label={t("close")}
+                className="pressable rounded-full bg-black/45 p-2 text-white backdrop-blur-md"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <path d="M2 2l10 10M12 2L2 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div
+            className="fixed inset-x-0 z-20 flex flex-col gap-2 p-3"
+            style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)" }}
+          >
+            {loaded && <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="overlay" />}
+            {active?.status === "closed" && <WinnerPill itemId={active.id} />}
+            {active && (
+              <div className="glass-panel flex items-center gap-3 rounded-2xl p-2.5">
+                {active.img_url && (
+                  <img
+                    src={active.img_url}
+                    alt=""
+                    className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1 leading-tight">
+                  <p className="truncate text-sm font-semibold text-white">{active.title}</p>
+                  <p className="tnum text-sm font-semibold text-accent">
+                    <CountUp value={active.current_price} />
+                  </p>
+                </div>
+                <Badge tone={active.status === "closed" ? "closed" : "muted"}>
+                  {active.status}
+                </Badge>
+              </div>
+            )}
+            {loaded && active && (
+              active.status === "closed" ? (
+                <Link
+                  href={`/${locale}/win/${active.id}`}
+                  className="pressable rounded-full bg-accent px-4 py-2.5 text-center text-sm font-semibold text-accent-ink"
+                >
+                  {t("seeResult")}
+                </Link>
+              ) : !biddingOpen ? (
+                <p className="rounded-2xl bg-black/45 px-3 py-2 text-center text-sm text-white backdrop-blur-md">
+                  {t("bidNotStarted")}
+                </p>
+              ) : (
+                <div className="glass-panel rounded-2xl p-2.5">
+                  <BidForm current={active.current_price} onBid={placeBid} />
+                </div>
+              )
+            )}
+            {error && (
+              <p role="alert" className="rounded-2xl bg-black/45 px-3 py-2 text-center text-sm text-red-300 backdrop-blur-md">
+                {error}
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }

@@ -10,6 +10,15 @@ export function countdownParts(ms: number): { m: string; s: string } {
   return { m, s };
 }
 
+// Stream-duration readout: H:MM:SS past the first hour, else MM:SS.
+export function elapsedParts(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+}
+
 const MESSAGES: Record<string, { id: string; en: string }> = {
   closed: { id: "Lelang sudah tutup/berakhir", en: "Auction is closed" },
   too_low: {

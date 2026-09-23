@@ -49,6 +49,8 @@
   "videoOnly": "End video only",
   "videoOnlyNote": "Video/chat stop, auction runs until timer ends.",
   "cancel": "Cancel",
+  "close": "Close",
+  "watching": "watching",
   "startingSoon": "Starting soon",
   "streamEnded": "Stream ended",
   "chatHint": "Write a message…",
