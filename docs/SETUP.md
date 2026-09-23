@@ -233,6 +233,10 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
     is gone (deleted); a stale live room with no viewers flips to `ended`.
 21. **16:9 crop** — upload a portrait photo as item image / room cover:
     stored file is a centered 16:9 JPEG crop.
+22. **Fit preview + Other + dialog** — pre-post preview frame matches the
+    lobby/item card exactly; pick "Other" category end-to-end (dialog,
+    gate, lobby tab); open Go Live from a phone — dialog is fully visible
+    and scrollable, never clipped by the bottom nav.
 
 ## 9. Troubleshooting
 
@@ -332,3 +336,10 @@ Shipped after the auction-modes migration; all covered by the specs in
   (`lib/sweep.ts`, fail-open). No scheduler needed.
 - **16:9 uploads** — item photos and room covers are center-cropped to 16:9
   JPEGs client-side at accept time (`lib/image.ts`); previews are WYSIWYG.
+  Every display surface (lobby, item card, rail, mobile card, sales) renders
+  `aspect-video object-cover`, and the room cover is staged with a fit
+  preview + Upload/Cancel confirm before anything posts.
+- **"Other" category** — fifth value in the check + lobby tab (complement
+  filter: titles no hint covers).
+- **Dialog portal** — `GoLiveDialog` portals to `document.body`, immune to
+  the BottomNav backdrop-blur containing block that cropped it on mobile.

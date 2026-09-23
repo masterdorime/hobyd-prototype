@@ -272,6 +272,10 @@ alter table items add column if not exists duration_sec int not null default 30
   check (duration_sec between 10 and 300);
 alter table rooms add column if not exists category text
   check (category in ('Sneakers','TCG','Vintage Clothing','Electronics'));
+-- 2026-09-24 "Other" category: re-create the check idempotently.
+alter table rooms drop constraint if exists rooms_category_check;
+alter table rooms add constraint rooms_category_check
+  check (category in ('Sneakers','TCG','Vintage Clothing','Electronics','Other'));
 
 create or replace function place_bid(p_item_id uuid, p_bidder uuid, p_amount int, p_max_extensions int, p_mode text, p_window_secs int, p_add_secs int)
 returns jsonb

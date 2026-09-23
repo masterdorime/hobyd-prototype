@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
 import { CameraCapture } from "@/components/CameraCapture";
+import { ThumbFitPreview } from "@/components/ThumbFitPreview";
 import { FieldInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/ui";
@@ -201,11 +202,9 @@ export default function SellPage({
               />
             )}
             {preview && (
-              <img
-                src={preview}
-                alt="Listing preview"
-                className="mt-1 h-auto w-full max-w-64 rounded-xl object-cover"
-              />
+              <div className="mt-1">
+                <ThumbFitPreview src={preview} alt="Listing preview" />
+              </div>
             )}
           </div>
           <label className="flex flex-col gap-1 text-sm">

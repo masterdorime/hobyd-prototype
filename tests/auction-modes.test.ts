@@ -39,9 +39,10 @@ test("clampDuration falls back on non-finite (NaN→30)", () => {
   expect(clampDuration(NaN)).toBe(30);
 });
 
-test("category set is exactly the spec four", () => {
-  expect([...CATEGORIES]).toEqual(["Sneakers", "TCG", "Vintage Clothing", "Electronics"]);
+test("category set is the spec four plus Other", () => {
+  expect([...CATEGORIES]).toEqual(["Sneakers", "TCG", "Vintage Clothing", "Electronics", "Other"]);
   expect(isCategory("TCG")).toBe(true);
+  expect(isCategory("Other")).toBe(true);
   expect(isCategory("Pokemon")).toBe(false);
   expect(isCategory(null)).toBe(false);
 });

@@ -5,6 +5,7 @@
 // close; empty title shows an inline error and never POSTs.
 "use client";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { NeuCard } from "@/components/ui/card";
@@ -25,6 +26,11 @@ export function GoLiveDialog({
   const [category, setCategory] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Portaled to document.body on mount: BottomNav's backdrop-blur creates a
+  // containing block that traps non-portaled `fixed` descendants inside the
+  // nav strip (cropped dialog on mobile). SSR-safe — portal only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -63,16 +69,17 @@ export function GoLiveDialog({
     }
   }
 
-  return (
+  if (!mounted) return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4"
       role="dialog"
       aria-modal="true"
       aria-label={t("goLive")}
       onClick={() => { if (!busy) onClose(); }}
     >
       <NeuCard
-        className="flex w-full max-w-sm flex-col gap-3 p-5"
+        className="my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-sm flex-col gap-3 overflow-y-auto p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-bold">{t("goLive")}</h2>
@@ -127,6 +134,7 @@ export function GoLiveDialog({
           {t("cancel")}
         </button>
       </NeuCard>
-    </div>
+    </div>,
+    document.body,
   );
 }

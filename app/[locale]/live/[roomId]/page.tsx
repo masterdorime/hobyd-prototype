@@ -547,7 +547,7 @@ export default function LivePage({
                   src={active.img_url}
                   alt={active.title}
                   loading="lazy"
-                  className="h-auto w-full rounded-xl object-cover"
+                  className="aspect-video w-full rounded-xl object-cover"
                 />
               )}
               <p className="text-lg">
@@ -654,7 +654,7 @@ export default function LivePage({
                   <img
                     src={active.img_url}
                     alt=""
-                    className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                    className="aspect-video h-14 shrink-0 rounded-xl object-cover"
                   />
                 )}
                 <div className="min-w-0 flex-1 leading-tight">

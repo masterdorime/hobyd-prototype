@@ -15,7 +15,7 @@ import { Spotlight } from "@/components/effects/Spotlight";
 
 type Room = { id: string; title: string; status: string; thumbnail_url?: string | null };
 
-const CATS: Category[] = ["all", "sneakers", "tcg", "vintage", "electronics"];
+const CATS: Category[] = ["all", "sneakers", "tcg", "vintage", "electronics", "other"];
 
 function toneFor(status: string): "live" | "ending" | "closed" | "muted" {
   if (status === "live") return "live";
@@ -111,7 +111,7 @@ export default function LobbyPage({
                     src={r.thumbnail_url}
                     alt={r.title}
                     loading="lazy"
-                    className="h-32 w-full rounded-xl object-cover"
+                    className="aspect-video w-full rounded-xl object-cover"
                   />
                 )}
                 <p className="font-semibold tracking-tight">{r.title}</p>

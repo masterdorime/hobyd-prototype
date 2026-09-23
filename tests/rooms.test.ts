@@ -30,6 +30,15 @@ test("unknown category returns everything", () => {
   expect(filterRooms(rooms, "diecast")).toHaveLength(2);
 });
 
+test("other matches rooms no hint covers, falls back when empty", () => {
+  const mixed: LobbyRoom[] = [
+    ...rooms,
+    { id: "3", title: "Asep Ikan Goreng", status: "live" },
+  ];
+  expect(filterRooms(mixed, "other")).toEqual([mixed[1], mixed[2]]);
+  expect(filterRooms([rooms[0]], "other")).toHaveLength(1);
+});
+
 test("buildRoomRow opens a preview room for any signed-in user", () => {
   expect(buildRoomRow({ title: "HOBYD Live", seller_name: "s@hobyd.id", owner_id: "u1" })).toEqual({
     title: "HOBYD Live",

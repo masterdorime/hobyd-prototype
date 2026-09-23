@@ -9,6 +9,7 @@ import { FieldInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/ui";
 import { CameraCapture } from "@/components/CameraCapture";
+import { ThumbFitPreview } from "@/components/ThumbFitPreview";
 import { validateSellInput } from "@/lib/sell";
 import { clampDuration } from "@/lib/auction";
 import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
@@ -182,11 +183,7 @@ export function ListItemForm({
           />
         )}
         {preview && (
-          <img
-            src={preview}
-            alt={t("itemPhoto")}
-            className="h-auto w-full max-w-64 rounded-xl object-cover"
-          />
+          <ThumbFitPreview src={preview} alt={t("itemPhoto")} />
         )}
         <label className="flex flex-col gap-1 text-sm">
           {t("itemPrice")}
