@@ -57,9 +57,12 @@ export default function LivePage({
   const [armClose, setArmClose] = useState<string | null>(null);
   const [catMsg, setCatMsg] = useState(false);
   const [acting, setActing] = useState(false);
-  const [isFs, setIsFs] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const [theater, setTheater] = useState(false);
+  const [vidPortrait, setVidPortrait] = useState(false);
   const closeFired = useRef<Set<string>>(new Set());
+
+  // A new room means a new stream — drop the previous orientation verdict.
+  useEffect(() => { setVidPortrait(false); }, [roomId]);
 
   const active = items.find((i) => i.id === activeId) ?? null;
 
@@ -193,20 +196,16 @@ export default function LivePage({
     }
   }
 
+  // Theater replaces native fullscreen: the same video box DOM node goes
+  // fixed-viewport, so LiveKit never reconnects and publisher tracks survive.
   useEffect(() => {
-    const onFs = () => setIsFs(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
-  }, []);
-
-  async function toggleFs() {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await boxRef.current?.requestFullscreen();
-    } catch {
-      /* fullscreen unavailable — inline video stays */
-    }
-  }
+    if (!theater) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTheater(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [theater]);
 
   async function closeBid(id: string) {
     if (armClose !== id) {
@@ -260,21 +259,43 @@ export default function LivePage({
               {roomStatus !== "ended" && <ThumbnailSetter roomId={roomId} />}
             </div>
           )}
-          <div ref={boxRef} className="relative overflow-hidden rounded-2xl bg-black">
+          <div
+            className={cn(
+              "bg-black",
+              theater
+                ? "fixed inset-0 z-50 flex flex-col p-4"
+                : "relative overflow-hidden rounded-2xl",
+              !theater && vidPortrait && "mx-auto aspect-[9/16] h-[75dvh] max-w-full",
+            )}
+          >
             {!room ? (
               <div className="glass-panel flex h-64 items-center justify-center">
                 <p className="text-sm text-white/80">{t("waiting")}</p>
               </div>
             ) : roomStatus !== "live" ? (
               isOwner && roomStatus === "preview" ? (
-                <LiveVideo key="owner-pub" roomId={roomId} canPublish />
+                <LiveVideo
+                  key="owner-pub"
+                  roomId={roomId}
+                  canPublish
+                  contain={vidPortrait}
+                  fill={theater}
+                  onVideoSize={(w, h) => setVidPortrait(h > w)}
+                />
               ) : (
                 <div className="glass-panel flex h-64 items-center justify-center">
                   <p className="text-sm text-white/80">{t(roomStatus === "preview" ? "startingSoon" : "streamEnded")}</p>
                 </div>
               )
             ) : (
-              <LiveVideo key={isOwner ? "owner-pub" : "viewer"} roomId={roomId} canPublish={isOwner} />
+              <LiveVideo
+                key={isOwner ? "owner-pub" : "viewer"}
+                roomId={roomId}
+                canPublish={isOwner}
+                contain={vidPortrait}
+                fill={theater}
+                onVideoSize={(w, h) => setVidPortrait(h > w)}
+              />
             )}
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
               {roomStatus === "live" && (
@@ -297,9 +318,9 @@ export default function LivePage({
               <div className="absolute bottom-0 right-0 p-3">
                 <button
                   type="button"
-                  onClick={toggleFs}
-                  aria-label={t("fullscreen")}
-                  aria-pressed={isFs}
+                  onClick={() => setTheater((v) => !v)}
+                  aria-label={t("theaterMode")}
+                  aria-pressed={theater}
                   className="pressable rounded-full border border-white/15 bg-black/45 p-2.5 text-white backdrop-blur-md"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

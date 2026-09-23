@@ -16,7 +16,33 @@ import { cn } from "@/lib/ui";
 
 type PreviewTracks = { video: LocalVideoTrack | null; audio: LocalAudioTrack | null };
 
-export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canPublish?: boolean }) {
+// Reports an attached <video> element's intrinsic size (follows rotation).
+function watchVideoSize(
+  el: HTMLMediaElement | null,
+  cb?: (w: number, h: number) => void,
+) {
+  if (!(el instanceof HTMLVideoElement) || !cb) return;
+  const fire = () => {
+    if (el.videoWidth > 0 && el.videoHeight > 0) cb(el.videoWidth, el.videoHeight);
+  };
+  el.addEventListener("loadedmetadata", fire);
+  el.addEventListener("resize", fire);
+  fire();
+}
+
+export function LiveVideo({
+  roomId,
+  canPublish = false,
+  contain = false,
+  fill = false,
+  onVideoSize,
+}: {
+  roomId: string;
+  canPublish?: boolean;
+  contain?: boolean;
+  fill?: boolean;
+  onVideoSize?: (w: number, h: number) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const t = useTranslations();
   const [down, setDown] = useState(false);
@@ -25,6 +51,11 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
   // locally, published only when the owner taps publishCam).
   const roomRef = useRef<Room | null>(null);
   const tracksRef = useRef<PreviewTracks | null>(null);
+  // onVideoSize changes identity every render — route through a ref so the
+  // connect-once effects never capture a stale callback.
+  const sizeRef = useRef(onVideoSize);
+  sizeRef.current = onVideoSize;
+  const reportSize = (w: number, h: number) => sizeRef.current?.(w, h);
   const [attempt, setAttempt] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
   const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | null>(null);
@@ -51,16 +82,22 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
         // meant remote mic audio arrived but never played (silent viewers).
         room.on("trackSubscribed", (track) => {
           if (!ref.current) return;
-          if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio)
-            ref.current.appendChild(track.attach());
+          if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio) {
+            const el = track.attach();
+            ref.current.appendChild(el);
+            if (track.kind === Track.Kind.Video) watchVideoSize(el, reportSize);
+          }
         });
         await room.connect(t.url, t.token);
         room.remoteParticipants.forEach((p) =>
           p.trackPublications.forEach((pub) => {
             const tr = pub.track;
             if (!tr || !ref.current) return;
-            if (tr.kind === Track.Kind.Video || tr.kind === Track.Kind.Audio)
-              ref.current.appendChild(tr.attach());
+            if (tr.kind === Track.Kind.Video || tr.kind === Track.Kind.Audio) {
+              const el = tr.attach();
+              ref.current.appendChild(el);
+              if (tr.kind === Track.Kind.Video) watchVideoSize(el, reportSize);
+            }
           }));
       } catch { if (!cancelled) setDown(true); }
     })();
@@ -105,6 +142,7 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
       if (v) {
         const el = v.attach();
         el.muted = true;
+        watchVideoSize(el, reportSize);
         ref.current?.appendChild(el);
       }
       setPreviewReady(true);
@@ -125,7 +163,11 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
 
   if (!canPublish) {
     return (
-      <div ref={ref} className="aspect-video w-full overflow-hidden rounded-lg bg-black [&_video]:h-full [&_video]:w-full">
+      <div ref={ref} className={cn(
+        "w-full overflow-hidden bg-black [&_video]:h-full [&_video]:w-full",
+        contain ? "mx-auto aspect-[9/16] [&_video]:object-contain" : "rounded-lg aspect-video",
+        fill && "h-full",
+      )}>
         {down && <p className="p-4 text-sm text-white">{t("reconnecting")}</p>}
       </div>
     );
@@ -175,9 +217,15 @@ export function LiveVideo({ roomId, canPublish = false }: { roomId: string; canP
   }
 
   return (
-    <div className="glass-panel flex flex-col gap-3 p-3">
-      <div className="relative overflow-hidden rounded-xl bg-black">
-        <div ref={ref} className="aspect-video w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
+    <div className={cn("glass-panel flex flex-col gap-3 p-3", fill && "h-full")}>
+      <div className={cn(
+        "relative overflow-hidden rounded-xl bg-black",
+        contain && "min-h-0 flex-1",
+      )}>
+        <div ref={ref} className={cn(
+          "w-full [&_video]:h-full [&_video]:w-full",
+          contain ? "h-full [&_video]:object-contain" : "aspect-video [&_video]:object-cover",
+        )} />
         <div className="pointer-events-none absolute left-3 top-3">
           <Badge tone={live ? "live" : "muted"}>
             {live ? (
