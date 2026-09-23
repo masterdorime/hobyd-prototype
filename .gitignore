@@ -9,3 +9,5 @@ out/
 graphify-out/
 raw/media/
 *.tsbuildinfo
+.vercel
+.env*

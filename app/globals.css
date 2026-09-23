@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --accent: #fbbf24;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Apple-grade dark shell tokens (Tailwind v4): canvas, layered surfaces,
+   one amber accent. Utilities used below: bg-canvas, text-accent, etc. */
+@theme {
+  --color-canvas: #09090b;
+  --color-raised: #131316;
+  --color-overlay: #1c1c21;
+  --color-accent: #fbbf24;
+  --color-accent-ink: #09090b;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: clip;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Arial,
+    Helvetica, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display headings: tight leading + negative tracking. */
+.display {
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Tabular numerals for prices and countdowns. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tactile press feedback on interactive controls. */
+.pressable:active {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+/* Translucent chrome: content scrolls under a blurred, saturated bar.
+   The two backdrop-filter declarations live in separate @supports rules
+   so the minifier keeps both (unprefixed for Firefox, -webkit for Safari). */
+.chrome-surface {
+  background: rgba(9, 9, 11, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .chrome-surface {
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .chrome-surface {
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(251, 191, 36, 0.35);
+}
+
+/* Reduced motion: kill springs/slides. Motion values are also gated in
+   JS (MotionConfig reducedMotion="user" + useEnter); this covers CSS. */
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active {
+    transform: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Reduced transparency: chrome goes solid. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel {
+    background: #141417;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-panel {
+      backdrop-filter: none;
+    }
+  }
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .glass-panel {
+      -webkit-backdrop-filter: none;
+    }
+  }
+  .chrome-surface {
+    background: #0a0a0c;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      backdrop-filter: none;
+    }
+  }
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      -webkit-backdrop-filter: none;
+    }
+  }
+}
+
+/* Hybrid material system: glass ONLY over live/video, neu ONLY on static cards.
+   Glass = translucent floating chrome; Neu = soft extruded dark plastic. */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.18);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .glass-panel {
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .glass-panel {
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+.neu-raised {
+  background: #131316;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow:
+    8px 8px 24px #050506,
+    -8px -8px 24px #1d1d22;
+}
+.neu-pressed {
+  background: #101013;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow:
+    inset 6px 6px 14px #050506,
+    inset -6px -6px 14px #1b1b20;
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  opacity: 0.6;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #f87171;
+}
+
+/* Forced contrast: solid chrome + explicit borders. */
+@media (prefers-contrast: more) {
+  .chrome-surface {
+    background: #000;
+    border-bottom: 1px solid #fff;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      backdrop-filter: none;
+    }
+  }
+  @supports (-webkit-backdrop-filter: blur(1px)) {
+    .chrome-surface {
+      -webkit-backdrop-filter: none;
+    }
+  }
+}
