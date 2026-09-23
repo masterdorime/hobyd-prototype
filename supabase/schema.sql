@@ -46,7 +46,8 @@ create table orders (
   status text not null default 'pending'
     check (status in ('pending','paid','expired','cancelled')),
   created_at timestamptz not null default now(),
-  paid_at timestamptz
+  paid_at timestamptz,
+  winner_contact text
 );
 
 alter table rooms enable row level security;

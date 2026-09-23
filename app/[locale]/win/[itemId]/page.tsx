@@ -12,6 +12,9 @@ import { motion } from "motion/react";
 import { uiSpring, useEnter } from "@/lib/motion";
 import { CountUp } from "@/components/effects/CountUp";
 import { Badge } from "@/components/ui/badge";
+import { FieldInput } from "@/components/ui/input";
+import { waLink } from "@/lib/contact";
+import { browserDb } from "@/lib/supabase/client";
 
 type Item = {
   id: string;
@@ -26,6 +29,7 @@ type Order = {
   item_id: string;
   winner: string;
   status: string;
+  winner_contact: string | null;
 };
 
 export default function WinPage({
@@ -38,6 +42,10 @@ export default function WinPage({
   const [item, setItem] = useState<Item | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [orderDone, setOrderDone] = useState(false);
+  const [me, setMe] = useState<string | null>(null);
+  const [contact, setContact] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState(false);
   const enter = useEnter(uiSpring, 24);
   useEffect(() => {
     fetch("/api/items")
@@ -51,6 +59,9 @@ export default function WinPage({
         setOrderDone(true);
       })
       .catch(() => setOrderDone(true));
+    browserDb().auth.getUser().then(({ data }) => {
+      setMe(data.user?.id ?? null);
+    }).catch(() => setMe(null));
   }, [itemId]);
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
@@ -93,6 +104,69 @@ export default function WinPage({
             >
               {t("payNow")}
             </Link>
+            {me && me === order.winner && (
+              <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-3">
+                {order.winner_contact ? (
+                  <p className="text-sm text-emerald-300">
+                    {t("contactSaved")}: {order.winner_contact}
+                  </p>
+                ) : (
+                  <>
+                    <label className="flex flex-col gap-1 text-sm">
+                      {t("winnerContact")}
+                      <FieldInput
+                        value={contact}
+                        onChange={(e) => setContact(e.target.value)}
+                        placeholder="0812…"
+                        inputMode="tel"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={saving || !contact.trim()}
+                      onClick={async () => {
+                        setSaving(true);
+                        try {
+                          const r = await fetch(`/api/orders/${order.id}/contact`, {
+                            method: "POST",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify({ contact: contact.trim() }),
+                          });
+                          const body = await r.json().catch(() => null);
+                          if (r.ok && body?.id) {
+                            setOrder(body);
+                            setSavedMsg(true);
+                          }
+                        } catch {
+                          /* error surfaces on retry */
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      className="pressable self-start rounded-full border border-white/15 px-4 py-2 text-sm disabled:opacity-50"
+                    >
+                      {t("save")}
+                    </button>
+                    {savedMsg && (
+                      <p className="text-sm text-emerald-300">{t("contactSaved")}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            {me && me !== order.winner && order.winner_contact && (
+              <div className="mt-2 border-t border-white/10 pt-3">
+                <p className="text-sm opacity-80">{t("winnerContact")}: {order.winner_contact}</p>
+                <a
+                  href={waLink(order.winner_contact)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pressable mt-2 inline-block rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink"
+                >
+                  {t("chatWinner")}
+                </a>
+              </div>
+            )}
           </motion.section>
         </div>
       ) : orderDone ? (
