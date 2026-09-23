@@ -32,8 +32,9 @@ export const env = {
       req("MAX_SNIPING_EXTENSIONS", process.env.MAX_SNIPING_EXTENSIONS),
       10
     ),
-  auctionSecs: () =>
-    parseInt(req("AUCTION_DURATION_SEC", process.env.AUCTION_DURATION_SEC), 10),
+  // NOTE: AUCTION_DURATION_SEC is retired — durations are per-item
+  // (duration_sec, 10–300s) chosen on the listing form. Kept out of env
+  // so no dead required var can crash a fresh deploy.
   paySecs: () =>
     parseInt(req("PAYMENT_WINDOW_SEC", process.env.PAYMENT_WINDOW_SEC), 10),
   extensionWindowSecs: () =>

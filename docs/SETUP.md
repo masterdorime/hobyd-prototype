@@ -52,7 +52,12 @@ sandbox account, a Vercel account, Node 20+ and `npm` locally.
    stored here; the app's `POST /api/items` takes an `img_url` string, so use
    the file's **Get public URL** (or any public image URL) as `img_url`.
 5. **Auth.** Open **Authentication** → **Providers** → confirm **Email** is
-   ON (magic-link/password sign-in for pilot users). No extra config needed.
+   ON (magic-link/password sign-in for pilot users). If **Confirm email**
+   is ON (recommended), new users land on a verification notice after
+   signup and can resend the confirmation from the login page — the app
+   maps Supabase's "Email not confirmed" error to that notice
+   (`isEmailNotConfirmed` in `app/[locale]/login/page.tsx`). No extra
+   config needed.
 6. **Copy the three values.** Open **Project Settings** (gear icon) →
    **API**:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
@@ -70,8 +75,10 @@ sandbox account, a Vercel account, Node 20+ and `npm` locally.
    - **API secret** → `LIVEKIT_API_SECRET` (secret — server only)
    (Keys are under **Settings → Keys** if rotated later.)
 3. No webhook or room pre-creation needed: the app mints per-room tokens via
-   `GET /api/livekit-token?roomId=<room-uuid>` — sellers get publish grants,
-   everyone else subscribes (`grantFor` in `app/api/livekit-token/route.ts`).
+   `GET /api/livekit-token?roomId=<room-uuid>` — the room **owner** gets
+   publish grants, everyone else subscribes (`grantFor` in
+   `app/api/livekit-token/route.ts` compares the caller to the room's
+   `owner_id`).
 
 ## 3. Midtrans (sandbox)
 
@@ -100,7 +107,7 @@ sandbox account, a Vercel account, Node 20+ and `npm` locally.
 ## 4. Local run
 
 ```bash
-cp .env.example .env.local   # then fill every value (see §6 table)
+cp .env.example .env.local   # then fill every value (see the env table in §6)
 npm install
 npm run dev                  # http://localhost:3000/id  (default locale /id, /en available)
 ```
@@ -111,13 +118,13 @@ npm run dev                  # http://localhost:3000/id  (default locale /id, /e
 2. Go to [vercel.com/new](https://vercel.com/new) → **Import** the repo →
    keep framework preset **Next.js** → **Deploy** only after step 3.
 3. **Before deploying**, open **Settings → Environment Variables** (or the
-   deploy-time env form) and add **all 12 variables from `.env.example`**
+   deploy-time env form) and add **all variables from `.env.example`**
    (names + where to get each value — see §6). Set them for **Production**
    (and Preview if you want preview deploys to work).
 4. **Deploy** → wait for the build → open the production URL.
 5. Re-run the §3.4 notification-URL step with the real production URL.
 
-## 6. All env vars (12 — matches `.env.example`)
+## 6. All env vars (11 required + 2 optional — matches `.env.example`)
 
 | Name | Where to get it |
 |---|---|
@@ -129,9 +136,10 @@ npm run dev                  # http://localhost:3000/id  (default locale /id, /e
 | `LIVEKIT_API_SECRET` | LiveKit Cloud → Settings → Keys (§2.2, secret) |
 | `MIDTRANS_SERVER_KEY` | Midtrans → Settings → Access Keys → Server Key, Sandbox (§3.2, secret) |
 | `MIDTRANS_CLIENT_KEY` | Midtrans → Settings → Access Keys → Client Key, Sandbox (§3.2) |
-| `SELLER_ALLOWLIST` | You decide: comma-separated seller emails, e.g. `seller1@mail.com,seller2@mail.com` (matched case-insensitively by `isSeller()` in `lib/auth.ts`; only these can `POST /api/items` and publish video) |
-| `MAX_SNIPING_EXTENSIONS` | You decide: anti-sniping cap, e.g. `5` (after this many +10s extensions, late bids stop extending) |
-| `AUCTION_DURATION_SEC` | You decide: item lifetime, e.g. `120` (server sets `ends_at` on create) |
+| `SELLER_ALLOWLIST` | You decide: comma-separated emails, e.g. `seller1@mail.com,seller2@mail.com` (matched case-insensitively by `isSeller()` in `lib/auth.ts`). Since open go-live, this NO LONGER gates listing or publishing — any signed-in user can stream. It still lets allowlisted sellers view any order (winner-only otherwise) in `app/api/orders/route.ts`. |
+| `MAX_SNIPING_EXTENSIONS` | You decide: anti-sniping cap, e.g. `5` (after this many extensions, late bids stop extending; hard-close items never extend regardless) |
+| `EXTENSION_WINDOW_SEC` | Optional, default `10`: soft-close trigger window — bids in the last N seconds extend the clock |
+| `EXTENSION_ADD_SEC` | Optional, default `10`: seconds added per soft-close extension |
 | `PAYMENT_WINDOW_SEC` | You decide: keep `300` (5:00 QR countdown; the pay page hardcodes the same 300s — keep them in sync) |
 
 Coverage check (must print `ALL ENV DOCUMENTED`):
@@ -143,38 +151,25 @@ node -e "const fs=require('fs');const e=fs.readFileSync('.env.example','utf8').s
 ## 7. Post-deploy seed (seller + room)
 
 Do these against the **production** Supabase project (Dashboard → Table
-Editor / SQL Editor). You need one seller auth user first: open the deployed
-app, sign in with the seller email (must match `SELLER_ALLOWLIST`), then find
-its `id` under Supabase → **Authentication → Users**.
+Editor / SQL Editor). Signup auto-creates a `profiles` row via the
+`on_auth_user_created` trigger — no manual profile step. You need one
+signed-in user first: open the deployed app, sign up / sign in.
 
-```sql
--- 1. Seller profile row (id MUST equal the auth.users id of the seller email)
-insert into profiles (id, name) values ('<seller-auth-uuid>', 'Pilot Seller');
+Seller flow (all UI, no SQL needed):
 
--- 2. Lobby room row
-insert into rooms (title, seller_name, status)
-values ('Pilot Live #1', 'Pilot Seller', 'lobby')
-returning id;  -- save this uuid as <room-id>
-```
+1. Tap **Go Live** (header, signed in) or **Sell** — this opens a
+   `preview` room owned by you.
+2. On the live page, set a **thumbnail** (file or camera) and publish
+   your **camera** (preview first, then Start camera).
+3. Tap **Start Stream**, then pick a **category** (Sneakers / TCG /
+   Vintage Clothing / Electronics) — bidding stays closed until then.
+4. **+ Add item**: photo (file or in-app camera), title, start price,
+   mode (Soft close / Sudden death), duration (15/30/60s chips or
+   10–300s custom). Repeat for every item in the session.
+5. **Start bid** per item when ready; **Close bid** (two-tap) to settle
+   early, or let the timer close it. Winner pays via `/pay/<orderId>`.
 
-Then create the first item (<60s listing check): as the seller, call
-
-```bash
-curl -X POST https://<your-app>.vercel.app/api/items \
-  -H 'Content-Type: application/json' \
-  -H "Cookie: <seller-session-cookie>" \
-  --data '{"room_id":"<room-id>","title":"Kaos limited","img_url":"https://<your-project>.supabase.co/storage/v1/object/public/item-images/kaos.png","start_price":50000}'
-```
-
-(or insert into `items` via SQL with `ends_at = now() + make_interval(secs => 120)`).
-Flip the room live when ready:
-
-```sql
-update rooms set status = 'live' where id = '<room-id>';
-```
-
-The lobby (`/id`) lists `lobby`+`live` rooms; the live page is
-`/id/live/<room-id>`.
+Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
 
 ## 8. Acceptance run (Task 8 checklist, against the prod URL)
 
@@ -203,6 +198,18 @@ The lobby (`/id`) lists `lobby`+`live` rooms; the live page is
     wins each round, `extensions_used` increments by exactly 1 per extended
     bid, and the eventual winner matches the highest bid
     (`amount desc, created_at asc, id asc` tiebreak in `close_item()`).
+12. **Modes** — list one Soft + one Hard item (30s): bid at 3s left on
+    Soft → clock extends; same on Hard → clock unmoved, bid accepted.
+    Hostile `POST /api/items` (`mode=turbo`, `duration_sec=5`) → 400.
+13. **Category gate** — new room shows the category picker instead of bid
+    controls; Start-bid buttons are absent (not disabled) until a category
+    is picked; the lobby tab matches the pick.
+14. **Realtime proof** — bid/chat/category-pick in window A reflects in
+    window B within ~2s with no refresh. If anything sits stale, check
+    §11 (publication membership) before touching code.
+15. **Mobile 360px** — lobby/live/sell/login render with no horizontal
+    scroll; bottom nav (Discover / Go Live / Sell / Account) fully
+    tappable at 48px targets; EN↔ID toggle, no missing-key fallback text.
 
 ## 9. Troubleshooting
 
@@ -210,9 +217,10 @@ The lobby (`/id`) lists `lobby`+`live` rooms; the live page is
   (Settings → Environment Variables) — add it and redeploy.
 - Bids return `closed` immediately → item `ends_at` already passed or status
   is `closed`; create a fresh item (§7).
-- Live video connects but stays black → seller email not in
-  `SELLER_ALLOWLIST` (subscriber grant can't publish); fix the var, redeploy,
-  rejoin.
+- Live video connects but stays black → the viewer joined with a
+  subscriber grant: only the room **owner** (`rooms.owner_id`) gets the
+  publisher grant. Sign in as the owner (or assign one per the
+  pre-migration note below), rejoin.
 - Webhook 403 `bad_sig` → `MIDTRANS_SERVER_KEY` mismatch or wrong environment
   (sandbox key vs production notification); re-copy from §3.2.
 - **Orders `expired` is terminal: "stays expired" satisfies the pilot — an
@@ -238,3 +246,28 @@ the livestream section in §1.2). Backfill behavior: existing items get
 manual step); existing rooms get `category = null` — the seller picks a
 category on the live page before bidding opens. No RLS/Realtime changes
 needed.
+
+## 11. Realtime publication + profiles + thumbnails (2026-09-23)
+
+Three things that silently break the app when missing — verify after any
+fresh schema apply:
+
+1. **Realtime publication.** The UI subscribes to `bids`, `items`,
+   `rooms`, and `chat_messages`. If a table is missing from the
+   `supabase_realtime` publication, its screen region silently never
+   updates (no error anywhere). Verify:
+   ```sql
+   select tablename from pg_publication_tables
+   where pubname = 'supabase_realtime' order by tablename;
+   ```
+   Expected: `bids`, `chat_messages`, `items`, `rooms`. The trailing
+   `broadcast bids, items, rooms over realtime` section of
+   `supabase/schema.sql` adds any missing one (idempotent — safe to
+   re-run).
+2. **Profile auto-create.** Signup fires `on_auth_user_created`, which
+   inserts the `profiles` row bidding requires (`bids.bidder →`
+   `profiles(id)`). Without it every bid fails with `bid_failed`.
+   Verify: `select count(*) from profiles;` grows after a fresh signup.
+3. **Thumbnails.** `rooms.thumbnail_url` (nullable) set from the live
+   page's Set-thumbnail control; lobby cards render it when present.
+   `item-images` bucket must stay public-read (§1.4).
