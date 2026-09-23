@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import { MotionConfig } from "motion/react";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { BottomNav } from "@/components/BottomNav";
+import { GoLiveDialog } from "@/components/GoLiveDialog";
 import { browserDb } from "@/lib/supabase/client";
 
 export function Chrome({
@@ -25,7 +26,7 @@ export function Chrome({
   const t = useTranslations();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
-  const [goingLive, setGoingLive] = useState(false);
+  const [dialog, setDialog] = useState(false);
   useEffect(() => {
     let live = true;
     try {
@@ -53,23 +54,6 @@ export function Chrome({
       router.refresh();
     }
   }
-  async function goLive() {
-    if (goingLive) return;
-    setGoingLive(true);
-    try {
-      const res = await fetch("/api/rooms", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const body = await res.json().catch(() => null);
-      if (res.ok && body?.id) router.push(`/${locale}/live/${body.id}`);
-    } catch {
-      /* stay on lobby — room POST reports via lobby fetch */
-    } finally {
-      setGoingLive(false);
-    }
-  }
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex min-h-dvh flex-col bg-canvas text-white">
@@ -93,8 +77,7 @@ export function Chrome({
                 {email && (
                   <button
                     type="button"
-                    onClick={goLive}
-                    disabled={goingLive}
+                    onClick={() => setDialog(true)}
                     className="pressable rounded-full bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-50"
                   >
                     {t("goLive")}
@@ -132,6 +115,7 @@ export function Chrome({
           </p>
         </footer>
         <BottomNav locale={locale} />
+        {dialog && <GoLiveDialog locale={locale} onClose={() => setDialog(false)} />}
       </div>
     </MotionConfig>
   );

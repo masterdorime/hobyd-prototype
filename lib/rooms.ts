@@ -16,13 +16,27 @@ const HINTS: Record<Exclude<Category, "all">, string[]> = {
   electronics: ["electronics", "phone", "laptop", "camera", "console"],
 };
 
-export function buildRoomRow(o: { title: string; seller_name: string; owner_id: string }): {
+export function buildRoomRow(o: { title: string; seller_name: string; owner_id: string; category?: RoomCategory | null }): {
   title: string;
   seller_name: string;
   owner_id: string;
   status: string;
+  category?: RoomCategory;
 } {
-  return { title: o.title, seller_name: o.seller_name, owner_id: o.owner_id, status: "preview" };
+  const row: {
+    title: string;
+    seller_name: string;
+    owner_id: string;
+    status: string;
+    category?: RoomCategory;
+  } = { title: o.title, seller_name: o.seller_name, owner_id: o.owner_id, status: "preview" };
+  if (o.category && isCategory(o.category)) row.category = o.category;
+  return row;
+}
+
+// Stream titles: 1–80 chars after trimming (pure, tested).
+export function validateRoomTitle(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length >= 1 && v.trim().length <= 80;
 }
 
 export function filterRooms(rooms: LobbyRoom[], cat: string): LobbyRoom[] {

@@ -1,10 +1,13 @@
 import { vi } from "vitest";
-import { buildRoomRow, filterRooms, type LobbyRoom } from "../lib/rooms";
+import { buildRoomRow, filterRooms, validateRoomTitle, type LobbyRoom } from "../lib/rooms";
 
 vi.mock("@/lib/supabase/admin", () => ({ adminDb: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ requireUser: vi.fn() }));
 
 import { adminDb } from "@/lib/supabase/admin";
+import { requireUser } from "@/lib/auth";
 import { GET as roomGET } from "../app/api/rooms/[id]/route";
+import { POST as settingsPOST } from "../app/api/rooms/[id]/settings/route";
 
 const rooms: LobbyRoom[] = [
   { id: "1", title: "Charizard Holo PSA 9", status: "live" },
@@ -34,6 +37,72 @@ test("buildRoomRow opens a preview room for any signed-in user", () => {
     owner_id: "u1",
     status: "preview",
   });
+});
+
+test("buildRoomRow keeps a valid category, drops junk", () => {
+  expect(
+    buildRoomRow({ title: "T", seller_name: "s", owner_id: "u1", category: "TCG" }).category,
+  ).toBe("TCG");
+  expect(
+    buildRoomRow({ title: "T", seller_name: "s", owner_id: "u1", category: "Diecast" as never }).category,
+  ).toBeUndefined();
+});
+
+test("validateRoomTitle requires 1–80 trimmed chars", () => {
+  expect(validateRoomTitle("  Sneaker Drop  ")).toBe(true);
+  expect(validateRoomTitle("")).toBe(false);
+  expect(validateRoomTitle("   ")).toBe(false);
+  expect(validateRoomTitle("x".repeat(81))).toBe(false);
+  expect(validateRoomTitle(undefined)).toBe(false);
+});
+
+const SET_ID = "123e4567-e89b-12d3-a456-426614174000";
+function setCtx() {
+  return { params: Promise.resolve({ id: SET_ID }) } as any;
+}
+function setReq(body: unknown) {
+  return new Request("http://localhost/", { method: "POST", body: JSON.stringify(body) });
+}
+function setDb(ownerId: string | null, updated: { patch?: unknown } = {}) {
+  return {
+    from: () => ({
+      select: () => ({ eq: () => ({ single: async () => ({ data: ownerId ? { owner_id: ownerId } : null }) }) }),
+      update: (patch: unknown) => ({
+        eq: () => ({
+          select: () => ({
+            single: async () => {
+              updated.patch = patch;
+              return { data: { id: SET_ID, ...((patch as object) ?? {}) }, error: null };
+            },
+          }),
+        }),
+      }),
+    }),
+  };
+}
+
+test("settings rejects unauthenticated, bad uuid, and empty patch", async () => {
+  vi.mocked(requireUser).mockRejectedValue(new Error("nope"));
+  expect((await settingsPOST(setReq({ title: "T" }), setCtx())).status).toBe(401);
+  vi.mocked(requireUser).mockResolvedValue({ id: "u1", email: "u@e" } as any);
+  expect(
+    (await settingsPOST(setReq({ title: "T" }), { params: Promise.resolve({ id: "nope" }) } as any)).status,
+  ).toBe(404);
+  expect((await settingsPOST(setReq({}), setCtx())).status).toBe(400);
+  expect((await settingsPOST(setReq({ title: "  " }), setCtx())).status).toBe(400);
+  expect((await settingsPOST(setReq({ category: "Diecast" }), setCtx())).status).toBe(400);
+});
+
+test("settings enforces ownership and applies a partial patch", async () => {
+  vi.mocked(requireUser).mockResolvedValue({ id: "intruder", email: "x@e" } as any);
+  vi.mocked(adminDb).mockReturnValue(setDb("u1") as any);
+  expect((await settingsPOST(setReq({ title: "New" }), setCtx())).status).toBe(403);
+  vi.mocked(requireUser).mockResolvedValue({ id: "u1", email: "u@e" } as any);
+  const updated: { patch?: unknown } = {};
+  vi.mocked(adminDb).mockReturnValue(setDb("u1", updated) as any);
+  const res = await settingsPOST(setReq({ title: "New", category: "TCG" }), setCtx());
+  expect(res.status).toBe(200);
+  expect(updated.patch).toEqual({ title: "New", category: "TCG" });
 });
 
 test("GET /api/rooms/[id] selects explicit columns only (no select *)", async () => {

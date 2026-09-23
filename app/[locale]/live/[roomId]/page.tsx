@@ -164,7 +164,7 @@ export default function LivePage({
 
   async function pickCategory(category: string) {
     if (!room) return;
-    const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/category`, {
+    const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/settings`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ category }),

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { browserDb } from "@/lib/supabase/client";
+import { GoLiveDialog } from "@/components/GoLiveDialog";
 import { cn } from "@/lib/ui";
 
 function itemCls(active: boolean) {
@@ -19,7 +20,7 @@ export function BottomNav({ locale }: { locale: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
-  const [goingLive, setGoingLive] = useState(false);
+  const [dialog, setDialog] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   useEffect(() => {
     let live = true;
@@ -39,25 +40,6 @@ export function BottomNav({ locale }: { locale: string }) {
       return undefined;
     }
   }, []);
-
-  async function goLive() {
-    if (goingLive) return;
-    setGoingLive(true);
-    try {
-      const res = await fetch("/api/rooms", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const body = await res.json().catch(() => null);
-      if (res.ok && body?.id) router.push(`/${locale}/live/${body.id}`);
-      // On failure stay put — the lobby fetch surfaces room errors.
-    } catch {
-      // Stay put — the lobby fetch surfaces room errors.
-    } finally {
-      setGoingLive(false);
-    }
-  }
 
   async function signOut() {
     try {
@@ -90,8 +72,7 @@ export function BottomNav({ locale }: { locale: string }) {
         {email ? (
           <button
             type="button"
-            onClick={goLive}
-            disabled={goingLive}
+            onClick={() => setDialog(true)}
             className="pressable min-h-12 min-w-12 flex-1 rounded-xl bg-accent text-[11px] font-semibold text-accent-ink disabled:opacity-50"
           >
             {t("goLive")}
@@ -144,6 +125,7 @@ export function BottomNav({ locale }: { locale: string }) {
           </button>
         </div>
       ) : null}
+      {dialog && <GoLiveDialog locale={locale} onClose={() => setDialog(false)} />}
     </nav>
   );
 }

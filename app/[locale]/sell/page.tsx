@@ -34,6 +34,8 @@ export default function SellPage({
   const effDuration = clampDuration(custom === "" ? duration : custom);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [roomTitle, setRoomTitle] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -137,6 +139,7 @@ export default function SellPage({
       } else {
         const item = await res.json();
         setDone(item.id);
+        setRoomTitle(title.trim());
         setTitle("");
         setFile(null);
         setPrice("");
@@ -278,12 +281,46 @@ export default function SellPage({
             </p>
           )}
           {done && roomId && (
-            <p className="text-sm text-emerald-300">
-              Listed.{" "}
-              <Link href={`/${locale}/live/${roomId}`} className="underline">
-                {t("goLive")}
-              </Link>
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-emerald-300">
+                Listed.{" "}
+                <Link href={`/${locale}/live/${roomId}`} className="underline">
+                  {t("goLive")}
+                </Link>
+              </p>
+              <div className="flex gap-2">
+                <FieldInput
+                  value={roomTitle}
+                  onChange={(e) => setRoomTitle(e.target.value)}
+                  maxLength={80}
+                  aria-label={t("streamTitle")}
+                  className="min-w-0 flex-1"
+                />
+                <button
+                  type="button"
+                  disabled={renaming || !roomTitle.trim()}
+                  onClick={async () => {
+                    setRenaming(true);
+                    setError(null);
+                    try {
+                      const r = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/settings`, {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ title: roomTitle.trim() }),
+                      });
+                      if (!r.ok) setError("create_failed");
+                    } catch {
+                      setError("create_failed");
+                    } finally {
+                      setRenaming(false);
+                    }
+                  }}
+                  className="pressable shrink-0 rounded-xl border border-white/15 px-3 py-2 text-sm disabled:opacity-50"
+                >
+                  {t("save")}
+                </button>
+              </div>
+            </div>
           )}
           {!roomId && !done && (
             <p className="text-xs opacity-60">
