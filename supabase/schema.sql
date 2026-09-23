@@ -227,6 +227,22 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+-- Every table the UI subscribes to must be in the publication, or its
+-- postgres_changes callbacks silently never fire (bids/items/rooms were
+-- missing until 2026-09-23 — chat worked, nothing else updated live).
+do $$ begin
+  alter publication supabase_realtime add table bids;
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter publication supabase_realtime add table items;
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter publication supabase_realtime add table rooms;
+exception when duplicate_object then null;
+end $$;
+
 -- Auto-create a profile on every signup (name = email prefix).
 -- Trigger-only function, never callable as a client API.
 create or replace function public.handle_new_user()
