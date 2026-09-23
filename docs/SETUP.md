@@ -24,7 +24,9 @@ sandbox account, a Vercel account, Node 20+ and `npm` locally.
    Re-run the new `2026-09-22 livestream subsystem` section at the end of
    `supabase/schema.sql` in the SQL editor (it is `if not exists`-safe),
    then verify with `select * from chat_messages limit 1;` returning zero rows
-   without error.
+   without error. Also apply the later trailing sections the same way
+   (`2026-09-23 auction modes + category gate`, `add winner_contact to
+   orders` — see §10 and §11.4); all are idempotent.
 3. **Verify the apply** (live-DB check — queued verification from Tasks 1/4,
    do this now while you are here):
    - **Table Editor**: confirm tables `profiles`, `rooms`, `items`, `bids`,
@@ -157,17 +159,24 @@ signed-in user first: open the deployed app, sign up / sign in.
 
 Seller flow (all UI, no SQL needed):
 
-1. Tap **Go Live** (header, signed in) or **Sell** — this opens a
-   `preview` room owned by you.
-2. On the live page, set a **thumbnail** (file or camera) and publish
-   your **camera** (preview first, then Start camera).
-3. Tap **Start Stream**, then pick a **category** (Sneakers / TCG /
-   Vintage Clothing / Electronics) — bidding stays closed until then.
+1. Tap **Go Live** (header / bottom nav, signed in) — a dialog asks for a
+   **stream title** (1–80 chars) and **category** upfront, then opens your
+   `preview` room. (Listing via **Sell** instead creates the room from the
+   item title; rename it later from the sell page or the settings route.)
+2. On the live page, set a **thumbnail** (file or camera — auto-cropped to
+   16:9, like all uploaded photos) and publish your **camera** (preview
+   first, then Start camera).
+3. Tap **Start Stream**. If the room still has no category, pick one
+   (Sneakers / TCG / Vintage Clothing / Electronics) — bidding stays
+   closed until then.
 4. **+ Add item**: photo (file or in-app camera), title, start price,
    mode (Soft close / Sudden death), duration (15/30/60s chips or
    10–300s custom). Repeat for every item in the session.
 5. **Start bid** per item when ready; **Close bid** (two-tap) to settle
    early, or let the timer close it. Winner pays via `/pay/<orderId>`.
+6. After the stream, open **Sales** (header / sell page) — every sold item
+   with the winner's WhatsApp number and tap-to-chat. Winners leave their
+   number on the win page.
 
 Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
 
@@ -210,6 +219,20 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
 15. **Mobile 360px** — lobby/live/sell/login render with no horizontal
     scroll; bottom nav (Discover / Go Live / Sell / Account) fully
     tappable at 48px targets; EN↔ID toggle, no missing-key fallback text.
+16. **Naming dialog** — Go Live opens title + category dialog; empty title
+    blocks with an inline error; room opens with the given name/category.
+17. **Theater rail** — desktop theater shows video left, bid card + chat
+    rail right; toggling never drops the stream (same video node).
+18. **Mobile viewer stack** — phone viewer sees full-bleed video, top
+    identity bar (avatar, LIVE, duration, viewers, X), expiring chat,
+    thumbnail bid card; no right rail.
+19. **Handover + sales** — winner saves WhatsApp on the win page (invalid
+    numbers → 400); seller sees number + wa.me link on the win page and
+    the Sales page; non-winner save → 403.
+20. **Sweep** — create a preview room, wait 10+ min, reload the lobby: it
+    is gone (deleted); a stale live room with no viewers flips to `ended`.
+21. **16:9 crop** — upload a portrait photo as item image / room cover:
+    stored file is a centered 16:9 JPEG crop.
 
 ## 9. Troubleshooting
 
@@ -230,6 +253,10 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
   implementation read consistently.)
 - Pay page shows "Result unavailable" → only the winner (or a seller via
   `?item_id=`) can view an order (Ruling R2); sign in as the winner.
+- **My preview room vanished from the lobby** → expected: the auto-sweep
+  (§12) erases `preview` rooms older than 10 min that never went live, and
+  ends participant-less `live` rooms past the same TTL. If you were
+  mid-setup, just Go Live again.
 - **Pre-migration rooms have no owner.** Rooms created before the livestream
   migration have `owner_id = null` (subscriber-only, unmanageable — no Go
   Live / End controls). Assign an owner by id as an admin:
@@ -271,3 +298,37 @@ fresh schema apply:
 3. **Thumbnails.** `rooms.thumbnail_url` (nullable) set from the live
    page's Set-thumbnail control; lobby cards render it when present.
    `item-images` bucket must stay public-read (§1.4).
+4. **`winner_contact`.** Handover needs `orders.winner_contact` (nullable
+   text) — apply the trailing `add winner_contact to orders` section of
+   `supabase/schema.sql` (idempotent). Verify:
+   ```sql
+   select column_name from information_schema.columns
+   where table_schema = 'public' and table_name = 'orders'
+     and column_name = 'winner_contact';
+   ```
+   Expected: one row.
+
+## 12. Post-modes features (2026-09-23/24, no manual setup)
+
+Shipped after the auction-modes migration; all covered by the specs in
+`docs/superpowers/specs/`. No new env vars, no new RLS, no cron:
+
+- **Stream naming** — `GoLiveDialog` (title + category upfront, both Go Live
+  buttons); owner `POST /api/rooms/[id]/settings` renames/recategorizes
+  (replaces the old `…/category` route); sell page renames its preview room.
+- **Theater + portrait** — orientation-aware video box (portrait streams in
+  9:16, never cropped); theater overlay replaces native fullscreen, v2 adds
+  the YouTube-maximize bid+chat rail. Same video node throughout — no
+  reconnects, no duplicate topic subscriptions.
+- **Mobile viewer stack** — full-bleed video, identity top bar (initials,
+  LIVE, duration, LiveKit viewer count, X), expiring chat, winner pill,
+  thumbnail bid card. Sellers on phones keep the stacked scroll layout.
+- **Handover + sales inbox** — winner-only `POST /api/orders/[id]/contact`
+  saves WhatsApp (`winner_contact`); win page shows it to the seller with a
+  wa.me link; `GET /api/orders/sales` + `/sales` page list everything the
+  signed-in user sold.
+- **Auto-sweep** — `GET /api/rooms` lazily erases `preview` rooms older than
+  10 min and ends participant-less `live` rooms past the same TTL
+  (`lib/sweep.ts`, fail-open). No scheduler needed.
+- **16:9 uploads** — item photos and room covers are center-cropped to 16:9
+  JPEGs client-side at accept time (`lib/image.ts`); previews are WYSIWYG.
