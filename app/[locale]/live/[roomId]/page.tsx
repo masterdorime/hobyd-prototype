@@ -276,6 +276,11 @@ export default function LivePage({
                 </span>
               )}
             </div>
+            {room && roomStatus !== "ended" && (
+              <div className="absolute inset-x-0 bottom-0 p-3">
+                <ChatPanel roomId={roomId} roomStatus={roomStatus} />
+              </div>
+            )}
           </div>
           {items.length > 0 && (items.length > 1 || isOwner) && (
             <ul className="mt-4 flex flex-col gap-2">
@@ -404,7 +409,6 @@ export default function LivePage({
                 </p>
               )}
               <BidFeed itemId={active.id} />
-              <ChatPanel roomId={roomId} roomStatus={roomStatus} />
             </NeuCard>
           )}
         </section>

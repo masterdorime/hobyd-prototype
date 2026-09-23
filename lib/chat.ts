@@ -2,6 +2,9 @@
 export const CHAT_RATE_MS = 2000;
 export const MAX_NICK = 24;
 export const MAX_CHAT = 200;
+// Overlay budget: visible rows + per-message lifetime (4–6s fade window).
+export const CHAT_VISIBLE_COUNT = 8;
+export const CHAT_EXPIRE_MS = 5000;
 
 export type ChatCheck = { ok: true } | { ok: false; error: "invalid" | "too_long" };
 

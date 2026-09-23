@@ -1,19 +1,31 @@
-// components/ChatPanel.tsx — guest-capable live chat (last 30, Realtime INSERT).
+// components/ChatPanel.tsx — TikTok-style live chat overlay.
+// Fixed-height, bottom-anchored, overflow-hidden: new messages slide in at
+// the bottom, old ones drift up, and each fades out after EXPIRE_MS so the
+// container NEVER grows or pushes layout. Rendered over the video box;
+// the input row is the only interactive part (pointer-events-auto).
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { fadeTransition, momentumSpring } from "@/lib/motion";
 import { browserDb } from "@/lib/supabase/client";
+import { CHAT_EXPIRE_MS, CHAT_VISIBLE_COUNT } from "@/lib/chat";
 
 type Msg = { id: string; nickname: string; body: string; created_at: string };
 const NICK_KEY = "hobyd_nick";
+const EXPIRE_MS = CHAT_EXPIRE_MS;
+const VISIBLE = CHAT_VISIBLE_COUNT;
 
 export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: string }) {
   const t = useTranslations();
+  const reduce = useReducedMotion();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [nick, setNick] = useState("");
+  const [needNick, setNeedNick] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
     setMsgs([]);
@@ -26,39 +38,48 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
         { event: "INSERT", schema: "public", table: "chat_messages", filter: `room_id=eq.${roomId}` },
         (p) => setMsgs((m) => [...m, p.new as Msg].slice(-30)))
       .subscribe();
-    return () => { db.removeChannel(ch); };
+    return () => {
+      db.removeChannel(ch);
+      timers.current.forEach((id) => clearTimeout(id));
+      timers.current.clear();
+    };
   }, [roomId]);
 
-  // Prefill the nickname for signed-in users with no stored nick:
-  // profiles.name first, email prefix before @ as fallback. Guests unchanged.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const stored = localStorage.getItem(NICK_KEY);
-        if (stored) { setNick(stored); return; }
-      } catch { return; /* private mode — leave blank */ }
-      try {
-        const db = browserDb();
-        const { data } = await db.auth.getUser();
-        const user = data.user;
-        if (!user || cancelled) return;
-        const { data: profile } = await db.from("profiles")
-          .select("name").eq("id", user.id).single();
-        const name = (profile as { name: string } | null)?.name?.trim();
-        if (cancelled) return;
-        if (name) setNick(name);
-        else if (user.email) setNick(user.email.split("@")[0]);
-      } catch { /* guests / lookup failure — leave blank */ }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const saved = localStorage.getItem(NICK_KEY) ?? "";
+      setNick(saved);
+      setNeedNick(saved.trim().length === 0);
+    } catch {
+      setNeedNick(true);
+    }
   }, []);
+
+  // Expire each message EXPIRE_MS after it appears (history load included:
+  // old backlog clears itself seconds after mount, keeping overlay clean).
+  useEffect(() => {
+    for (const m of msgs) {
+      if (timers.current.has(m.id)) continue;
+      timers.current.set(
+        m.id,
+        setTimeout(() => {
+          timers.current.delete(m.id);
+          setMsgs((cur) => cur.filter((x) => x.id !== m.id));
+        }, EXPIRE_MS),
+      );
+    }
+  }, [msgs]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || !draft.trim()) return;
+    if (busy) return;
     const name = nick.trim();
-    if (!name) { setHint(t("nicknamePrompt")); return; }
+    if (!name) {
+      setNeedNick(true);
+      setHint(t("nicknamePrompt"));
+      return;
+    }
+    if (!draft.trim()) return;
     setBusy(true);
     setHint(null);
     const res = await fetch("/api/chat", {
@@ -69,16 +90,8 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
     setBusy(false);
     if (!res.ok) {
       const err = (await res.json().catch(() => null))?.error;
-      if (err === "rate_limited") {
-        setHint(t("rateLimited"));
-        setTimeout(() => setHint(null), 2000);
-      } else if (err === "too_long") {
-        setHint(t("messageTooLong"));
-      } else if (err === "invalid") {
-        setHint(t("nicknamePrompt"));
-      } else {
-        setHint(t("actionFailed"));
-      }
+      setHint(err === "rate_limited" ? t("rateLimited") : t("nicknamePrompt"));
+      if (err === "rate_limited") setTimeout(() => setHint(null), 2000);
       return;
     }
     try { localStorage.setItem(NICK_KEY, name); } catch { /* private mode */ }
@@ -86,37 +99,55 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
   }
 
   const closed = roomStatus === "ended";
+  const visible = msgs.slice(-VISIBLE);
+
   return (
-    <div className="flex flex-col gap-2">
-      <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto text-sm" aria-live="polite">
-        {msgs.map((m) => (
-          <li key={m.id} className="rounded-lg bg-white/5 px-3 py-1.5">
-            <span className="font-semibold">{m.nickname}</span>
-            <span className="opacity-80"> — {m.body}</span>
-          </li>
-        ))}
+    <div className="pointer-events-none flex h-56 flex-col justify-end gap-2">
+      <ul aria-live="polite" className="flex min-h-0 flex-1 flex-col justify-end gap-1 overflow-hidden">
+        <AnimatePresence initial={false}>
+          {visible.map((m) => (
+            <motion.li
+              key={m.id}
+              layout
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10 }}
+              transition={reduce ? fadeTransition : momentumSpring}
+              className="w-fit max-w-full rounded-full bg-black/45 px-3 py-1 text-[13px] text-white backdrop-blur-md"
+            >
+              <span className="font-semibold text-accent">{m.nickname}</span>
+              <span className="opacity-90"> {m.body}</span>
+            </motion.li>
+          ))}
+        </AnimatePresence>
       </ul>
       {closed ? (
-        <p className="text-sm opacity-70">{t("streamEnded")}</p>
+        <p className="text-sm text-white/70">{t("streamEnded")}</p>
       ) : (
-        <form onSubmit={send} className="flex flex-col gap-2">
-          <input
-            value={nick} onChange={(e) => setNick(e.target.value)} maxLength={24}
-            placeholder={t("nicknamePrompt")} aria-label={t("nickname")}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
-          />
+        <form onSubmit={send} className="pointer-events-auto flex flex-col gap-1.5">
+          {needNick && (
+            <input
+              value={nick} onChange={(e) => setNick(e.target.value)} maxLength={24}
+              placeholder={t("nicknamePrompt")} aria-label={t("nickname")}
+              className="w-40 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-[13px] text-white backdrop-blur-md placeholder:text-white/50"
+            />
+          )}
           <div className="flex gap-2">
             <input
               value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={200}
               placeholder={t("chatHint")} aria-label={t("send")}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-md placeholder:text-white/50"
             />
             <button type="submit" disabled={busy}
               className="pressable rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50">
               {t("send")}
             </button>
           </div>
-          {hint && <p role="alert" className="text-sm text-red-400">{hint}</p>}
+          {hint && (
+            <p role="alert" className="text-xs text-red-300">
+              {hint}
+            </p>
+          )}
         </form>
       )}
     </div>
