@@ -45,6 +45,7 @@
   "winnerContact": "Winner WhatsApp (for handover)",
   "contactSaved": "Saved — the seller can see this number",
   "chatWinner": "Chat winner",
+  "photoFailed": "Couldn't read that photo — try another.",
   "endStream": "End Stream",
   "endTitle": "End the stream?",
   "settleAndClose": "Close + settle",

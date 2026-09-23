@@ -174,8 +174,11 @@ export function LiveVideo({
     return (
       <div ref={ref} className={cn(
         "w-full overflow-hidden bg-black [&_video]:h-full [&_video]:w-full",
-        contain ? "mx-auto aspect-[9/16] [&_video]:object-contain" : "rounded-lg aspect-video",
-        fill && "h-full",
+        contain
+          ? "mx-auto aspect-[9/16] h-full shrink-0 [&_video]:object-contain"
+          : fill
+            ? "h-full w-full min-w-0 flex-1"
+            : "rounded-lg aspect-video",
       )}>
         {down && <p className="p-4 text-sm text-white">{t("reconnecting")}</p>}
       </div>
@@ -230,14 +233,16 @@ export function LiveVideo({
   }
 
   return (
-    <div className={cn("glass-panel flex flex-col gap-3 p-3", fill && "h-full")}>
+    <div className={cn("glass-panel flex flex-col gap-3 p-3", fill && "h-full min-w-0 flex-1")}>
       <div className={cn(
         "relative overflow-hidden rounded-xl bg-black",
-        contain && "min-h-0 flex-1",
+        (contain || fill) && "min-h-0 flex-1",
       )}>
         <div ref={ref} className={cn(
           "w-full [&_video]:h-full [&_video]:w-full",
-          contain ? "h-full [&_video]:object-contain" : "aspect-video [&_video]:object-cover",
+          contain ? "h-full [&_video]:object-contain"
+          : fill ? "min-h-0 flex-1 [&_video]:object-cover"
+          : "aspect-video [&_video]:object-cover",
         )} />
         <div className="pointer-events-none absolute left-3 top-3">
           <Badge tone={live ? "live" : "muted"}>

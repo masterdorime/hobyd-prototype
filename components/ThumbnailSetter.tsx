@@ -4,6 +4,7 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { validateImageFile } from "@/lib/upload";
+import { cropTo16x9 } from "@/lib/image";
 
 export function ThumbnailSetter({ roomId }: { roomId: string }) {
   const t = useTranslations();
@@ -21,10 +22,17 @@ export function ThumbnailSetter({ roomId }: { roomId: string }) {
       setError(check.error ?? "invalid");
       return;
     }
+    let shaped = f;
+    try {
+      shaped = await cropTo16x9(f);
+    } catch {
+      setError(t("photoFailed"));
+      return;
+    }
     setBusy(true);
     try {
       const fd = new FormData();
-      fd.set("file", f);
+      fd.set("file", shaped);
       const res = await fetch(`/api/rooms/${roomId}/thumbnail`, { method: "POST", body: fd });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.thumbnail_url) {

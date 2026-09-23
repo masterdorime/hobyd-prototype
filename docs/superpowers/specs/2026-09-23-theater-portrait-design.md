@@ -30,3 +30,11 @@ fullscreen. No new backend, no new columns.
 - No second LiveVideo instance anywhere (would double viewer connections and
   steal the publisher camera — the one-topic-per-component rule's cousin).
 - Reduced-motion and overlay layout untouched.
+
+## v2 (2026-09-24): YouTube-maximize side rail
+Theater is now a row: video left, 340px rail right (LIVE + countdown + exit X
+header, mini bid card, BidForm/result states, WinnerPill, panel ChatPanel).
+The aside's bidding card and panel chat unmount while theater is open, so the
+same topics are never subscribed twice — toggling only resubscribes, the
+LiveVideo node never remounts. `fill` (theater) sizing added to LiveVideo:
+landscape fills, portrait stays 9:16 letterboxed.

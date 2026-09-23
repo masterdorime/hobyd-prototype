@@ -304,7 +304,7 @@ export default function LivePage({
             className={cn(
               "bg-black",
               theater
-                ? "fixed inset-0 z-50 flex flex-col p-4"
+                ? "fixed inset-0 z-50 flex gap-4 bg-black/95 p-4"
                 : mobileViewer
                   ? "fixed inset-0 z-0"
                   : "relative overflow-hidden rounded-2xl",
@@ -342,6 +342,7 @@ export default function LivePage({
                 onViewers={setViewers}
               />
             )}
+            {!theater && (
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
               {roomStatus === "live" && !mobileViewer && (
                 <Badge tone="live">
@@ -359,7 +360,8 @@ export default function LivePage({
                 </span>
               )}
             </div>
-            {room && roomStatus !== "ended" && !isMobile && (
+            )}
+            {room && roomStatus !== "ended" && !isMobile && !theater && (
               <div className="absolute bottom-0 right-0 p-3">
                 <button
                   type="button"
@@ -372,6 +374,86 @@ export default function LivePage({
                     <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" />
                   </svg>
                 </button>
+              </div>
+            )}
+            {theater && (
+              <div className="flex w-[340px] shrink-0 flex-col gap-3 overflow-y-auto">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {roomStatus === "live" && (
+                      <Badge tone="live">
+                        <span className="live-dot" /> LIVE
+                      </Badge>
+                    )}
+                    {biddingOpen && (
+                      <span
+                        className={cn(
+                          "glass-panel tnum rounded-full px-3 py-1 text-sm",
+                          urgent ? "font-semibold text-accent" : "text-white",
+                        )}
+                      >
+                        {m}:{s}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTheater(false)}
+                    aria-label={t("close")}
+                    className="pressable rounded-full border border-white/15 bg-black/45 p-2 text-white backdrop-blur-md"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <path d="M2 2l10 10M12 2L2 12" />
+                    </svg>
+                  </button>
+                </div>
+                {loaded && active ? (
+                  <>
+                    <div className="glass-panel flex items-center gap-3 rounded-2xl p-2.5">
+                      {active.img_url && (
+                        <img
+                          src={active.img_url}
+                          alt=""
+                          className="aspect-video h-14 shrink-0 rounded-xl object-cover"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1 leading-tight">
+                        <p className="truncate text-sm font-semibold text-white">{active.title}</p>
+                        <p className="tnum text-sm font-semibold text-accent">
+                          <CountUp value={active.current_price} />
+                        </p>
+                      </div>
+                      <Badge tone={active.status === "closed" ? "closed" : "muted"}>
+                        {active.status}
+                      </Badge>
+                    </div>
+                    {active.status === "closed" && <WinnerPill itemId={active.id} />}
+                    {active.status === "closed" ? (
+                      <Link
+                        href={`/${locale}/win/${active.id}`}
+                        className="pressable rounded-full bg-accent px-4 py-2 text-center text-sm font-semibold text-accent-ink"
+                      >
+                        {t("seeResult")}
+                      </Link>
+                    ) : !biddingOpen ? (
+                      <p className="rounded-2xl bg-white/5 px-3 py-2 text-center text-sm text-white/80">
+                        {t("bidNotStarted")}
+                      </p>
+                    ) : (
+                      <BidForm current={active.current_price} onBid={placeBid} />
+                    )}
+                    {error && (
+                      <p role="alert" className="text-sm text-red-400">
+                        {error}
+                      </p>
+                    )}
+                    <div className="glass-panel flex min-h-72 flex-1 flex-col p-3">
+                      <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="panel" />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-white/70">{t("waiting")}</p>
+                )}
               </div>
             )}
           </div>
@@ -441,7 +523,7 @@ export default function LivePage({
           )}
         </section>
         <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
-          {!mobileViewer && (!loaded ? (
+          {!mobileViewer && !theater && (!loaded ? (
             <div className="skeleton h-72 rounded-2xl" aria-hidden />
           ) : !active ? (
             <p className="text-sm opacity-70">{t("waiting")}</p>
@@ -506,7 +588,7 @@ export default function LivePage({
               </div>
             </NeuCard>
           ))}
-          {loaded && active && !mobileViewer && (
+          {loaded && active && !mobileViewer && !theater && (
             <div className="glass-panel flex h-96 min-h-0 flex-col p-3 lg:h-auto lg:min-h-64 lg:flex-1">
               <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="panel" />
             </div>

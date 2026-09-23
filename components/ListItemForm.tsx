@@ -12,6 +12,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { validateSellInput } from "@/lib/sell";
 import { clampDuration } from "@/lib/auction";
 import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
+import { cropTo16x9 } from "@/lib/image";
 
 export type ListedItem = {
   id: string;
@@ -60,7 +61,7 @@ export function ListItemForm({
     acceptFile(e.target.files?.[0] ?? null);
   }
 
-  function acceptFile(f: File | null) {
+  async function acceptFile(f: File | null) {
     setError(null);
     if (!f) {
       setFile(null);
@@ -76,7 +77,12 @@ export function ListItemForm({
       );
       return;
     }
-    setFile(f);
+    try {
+      setFile(await cropTo16x9(f));
+    } catch {
+      setFile(null);
+      setError(t("photoFailed"));
+    }
   }
 
   async function submit(e: React.FormEvent) {

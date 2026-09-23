@@ -14,6 +14,7 @@ import { cn } from "@/lib/ui";
 import { validateSellInput } from "@/lib/sell";
 import { clampDuration } from "@/lib/auction";
 import { MAX_IMAGE_BYTES, validateImageFile } from "@/lib/upload";
+import { cropTo16x9 } from "@/lib/image";
 
 export default function SellPage({
   params,
@@ -42,32 +43,11 @@ export default function SellPage({
   const [showCam, setShowCam] = useState(false);
 
   function acceptCapture(f: File) {
-    setError(null);
-    const check = validateImageFile({ name: f.name, type: f.type, size: f.size });
-    if (!check.ok) {
-      setFile(null);
-      setError(
-        check.error === "too_large"
-          ? `Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`
-          : "JPG / PNG / WebP only",
-      );
-      return;
-    }
-    setFile(f);
+    acceptFile(f);
   }
 
-  useEffect(() => {
-    if (!file) {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  function pick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
+  // All stored photos are center-cropped to 16:9 before preview/upload.
+  async function acceptFile(f: File | null) {
     setError(null);
     if (!f) {
       setFile(null);
@@ -83,7 +63,27 @@ export default function SellPage({
       );
       return;
     }
-    setFile(f);
+    try {
+      setFile(await cropTo16x9(f));
+    } catch {
+      setFile(null);
+      setError(t("photoFailed"));
+    }
+  }
+
+  useEffect(() => {
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    acceptFile(f);
   }
 
   async function submit(e: React.FormEvent) {
