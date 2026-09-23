@@ -1,8 +1,9 @@
-// components/ChatPanel.tsx — TikTok-style live chat overlay.
-// Fixed-height, bottom-anchored, overflow-hidden: new messages slide in at
-// the bottom, old ones drift up, and each fades out after EXPIRE_MS so the
-// container NEVER grows or pushes layout. Rendered over the video box;
-// the input row is the only interactive part (pointer-events-auto).
+// components/ChatPanel.tsx — live chat in two presentations.
+// `overlay` (TikTok-style): fixed-height, bottom-anchored, overflow-hidden;
+//   messages slide in at the bottom and fade out after EXPIRE_MS so the
+//   container NEVER grows or pushes layout. Rendered over the video box.
+// `panel` (YouTube-style): persistent scrollable list that sticks to the
+//   newest message, for the side rail. Same send flow in both.
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -16,7 +17,15 @@ const NICK_KEY = "hobyd_nick";
 const EXPIRE_MS = CHAT_EXPIRE_MS;
 const VISIBLE = CHAT_VISIBLE_COUNT;
 
-export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: string }) {
+export function ChatPanel({
+  roomId,
+  roomStatus,
+  variant = "overlay",
+}: {
+  roomId: string;
+  roomStatus: string;
+  variant?: "overlay" | "panel";
+}) {
   const t = useTranslations();
   const reduce = useReducedMotion();
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -26,6 +35,8 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const listRef = useRef<HTMLUListElement>(null);
+  const panel = variant === "panel";
 
   useEffect(() => {
     setMsgs([]);
@@ -55,9 +66,10 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
     }
   }, []);
 
-  // Expire each message EXPIRE_MS after it appears (history load included:
-  // old backlog clears itself seconds after mount, keeping overlay clean).
+  // Overlay only: expire each message EXPIRE_MS after it appears
+  // (history load included — backlog clears itself after mount).
   useEffect(() => {
+    if (panel) return;
     for (const m of msgs) {
       if (timers.current.has(m.id)) continue;
       timers.current.set(
@@ -68,7 +80,14 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
         }, EXPIRE_MS),
       );
     }
-  }, [msgs]);
+  }, [msgs, panel]);
+
+  // Panel only: stick to the newest message.
+  useEffect(() => {
+    if (!panel) return;
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [msgs, panel]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -99,7 +118,61 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
   }
 
   const closed = roomStatus === "ended";
-  const visible = msgs.slice(-VISIBLE);
+  const visible = panel ? msgs : msgs.slice(-VISIBLE);
+
+  const form = closed ? (
+    <p className="text-sm text-white/70">{t("streamEnded")}</p>
+  ) : (
+    <form onSubmit={send} className={panel ? "flex flex-col gap-1.5" : "pointer-events-auto flex flex-col gap-1.5"}>
+      {needNick && (
+        <input
+          value={nick} onChange={(e) => setNick(e.target.value)} maxLength={24}
+          placeholder={t("nicknamePrompt")} aria-label={t("nickname")}
+          className="w-40 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-[13px] text-white backdrop-blur-md placeholder:text-white/50"
+        />
+      )}
+      <div className="flex gap-2">
+        <input
+          value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={200}
+          placeholder={t("chatHint")} aria-label={t("send")}
+          className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-md placeholder:text-white/50"
+        />
+        <button type="submit" disabled={busy}
+          className="pressable rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50">
+          {t("send")}
+        </button>
+      </div>
+      {hint && (
+        <p role="alert" className="text-xs text-red-300">
+          {hint}
+        </p>
+      )}
+    </form>
+  );
+
+  if (panel) {
+    return (
+      <div className="flex h-full min-h-0 flex-col gap-2">
+        <ul
+          ref={listRef}
+          aria-live="polite"
+          className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1"
+        >
+          {visible.length === 0 ? (
+            <li className="text-sm opacity-50">{t("noChatYet")}</li>
+          ) : (
+            visible.map((m) => (
+              <li key={m.id} className="text-[13px] leading-snug">
+                <span className="font-semibold text-accent">{m.nickname}</span>
+                <span className="opacity-85"> {m.body}</span>
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="shrink-0">{form}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="pointer-events-none flex h-56 flex-col justify-end gap-2">
@@ -121,35 +194,7 @@ export function ChatPanel({ roomId, roomStatus }: { roomId: string; roomStatus: 
           ))}
         </AnimatePresence>
       </ul>
-      {closed ? (
-        <p className="text-sm text-white/70">{t("streamEnded")}</p>
-      ) : (
-        <form onSubmit={send} className="pointer-events-auto flex flex-col gap-1.5">
-          {needNick && (
-            <input
-              value={nick} onChange={(e) => setNick(e.target.value)} maxLength={24}
-              placeholder={t("nicknamePrompt")} aria-label={t("nickname")}
-              className="w-40 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-[13px] text-white backdrop-blur-md placeholder:text-white/50"
-            />
-          )}
-          <div className="flex gap-2">
-            <input
-              value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={200}
-              placeholder={t("chatHint")} aria-label={t("send")}
-              className="min-w-0 flex-1 rounded-full border border-white/15 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-md placeholder:text-white/50"
-            />
-            <button type="submit" disabled={busy}
-              className="pressable rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50">
-              {t("send")}
-            </button>
-          </div>
-          {hint && (
-            <p role="alert" className="text-xs text-red-300">
-              {hint}
-            </p>
-          )}
-        </form>
-      )}
+      {form}
     </div>
   );
 }

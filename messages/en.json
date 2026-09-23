@@ -53,6 +53,8 @@
   "send": "Send",
   "topBids": "Top Bids",
   "noBidsYet": "No bids yet.",
+  "noChatYet": "No messages yet — say hi.",
+  "fullscreen": "Fullscreen",
   "rateLimited": "Slow down — wait a moment.",
   "actionFailed": "Something failed - try again.",
   "messageTooLong": "Message too long (max 200).",

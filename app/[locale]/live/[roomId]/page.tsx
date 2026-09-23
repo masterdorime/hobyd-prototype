@@ -57,6 +57,8 @@ export default function LivePage({
   const [armClose, setArmClose] = useState<string | null>(null);
   const [catMsg, setCatMsg] = useState(false);
   const [acting, setActing] = useState(false);
+  const [isFs, setIsFs] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
   const closeFired = useRef<Set<string>>(new Set());
 
   const active = items.find((i) => i.id === activeId) ?? null;
@@ -191,6 +193,21 @@ export default function LivePage({
     }
   }
 
+  useEffect(() => {
+    const onFs = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  async function toggleFs() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await boxRef.current?.requestFullscreen();
+    } catch {
+      /* fullscreen unavailable — inline video stays */
+    }
+  }
+
   async function closeBid(id: string) {
     if (armClose !== id) {
       setArmClose(id);
@@ -214,7 +231,7 @@ export default function LivePage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section className="min-w-0">
           {isOwner && room && (
             <div className="mb-3 flex flex-col gap-2">
@@ -243,7 +260,7 @@ export default function LivePage({
               {roomStatus !== "ended" && <ThumbnailSetter roomId={roomId} />}
             </div>
           )}
-          <div className="relative overflow-hidden rounded-2xl">
+          <div ref={boxRef} className="relative overflow-hidden rounded-2xl bg-black">
             {!room ? (
               <div className="glass-panel flex h-64 items-center justify-center">
                 <p className="text-sm text-white/80">{t("waiting")}</p>
@@ -277,8 +294,18 @@ export default function LivePage({
               )}
             </div>
             {room && roomStatus !== "ended" && (
-              <div className="absolute inset-x-0 bottom-0 p-3">
-                <ChatPanel roomId={roomId} roomStatus={roomStatus} />
+              <div className="absolute bottom-0 right-0 p-3">
+                <button
+                  type="button"
+                  onClick={toggleFs}
+                  aria-label={t("fullscreen")}
+                  aria-pressed={isFs}
+                  className="pressable rounded-full border border-white/15 bg-black/45 p-2.5 text-white backdrop-blur-md"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" />
+                  </svg>
+                </button>
               </div>
             )}
           </div>
@@ -347,13 +374,13 @@ export default function LivePage({
             </div>
           )}
         </section>
-        <section className="min-w-0">
+        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
           {!loaded ? (
             <div className="skeleton h-72 rounded-2xl" aria-hidden />
           ) : !active ? (
             <p className="text-sm opacity-70">{t("waiting")}</p>
           ) : (
-            <NeuCard className="flex flex-col gap-3 p-4 sm:p-5">
+            <NeuCard className="flex shrink-0 flex-col gap-3 p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <h1 className="display text-xl font-bold sm:text-2xl">
                   {active.title}
@@ -408,10 +435,17 @@ export default function LivePage({
                   {error}
                 </p>
               )}
-              <BidFeed itemId={active.id} />
+              <div className="max-h-48 overflow-y-auto">
+                <BidFeed itemId={active.id} />
+              </div>
             </NeuCard>
           )}
-        </section>
+          {loaded && active && (
+            <div className="glass-panel flex h-96 min-h-0 flex-col p-3 lg:h-auto lg:min-h-64 lg:flex-1">
+              <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="panel" />
+            </div>
+          )}
+        </aside>
       </div>
     </main>
   );
