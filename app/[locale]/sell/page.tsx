@@ -159,6 +159,11 @@ export default function SellPage({
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-6 sm:px-6">
       <h1 className="display text-2xl font-bold sm:text-3xl">Sell</h1>
+      <p className="mt-1 text-sm opacity-70">
+        <Link href={`/${locale}/sales`} className="underline">
+          {t("sales")}
+        </Link>
+      </p>
       <NeuCard className="mt-4 p-4 sm:p-5">
         <form onSubmit={submit} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm">

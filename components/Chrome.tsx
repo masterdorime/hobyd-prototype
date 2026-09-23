@@ -75,6 +75,14 @@ export function Chrome({
                   Sell
                 </Link>
                 {email && (
+                  <Link
+                    href={`/${locale}/sales`}
+                    className="pressable rounded-full bg-white/10 px-3 py-1 text-sm text-white hover:bg-white/15"
+                  >
+                    {t("sales")}
+                  </Link>
+                )}
+                {email && (
                   <button
                     type="button"
                     onClick={() => setDialog(true)}
