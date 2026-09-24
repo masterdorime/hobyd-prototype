@@ -245,6 +245,10 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
 24. **Mobile video fix** — publish capped at 720p (phones decode any
     stream); viewer video is full-bleed cover on phones; `?debug=1` on a
     live URL shows the track-event readout for black-video repros.
+25. **Count everywhere, chromeless watch** — viewers pill on desktop
+    overlay, theater rail, fs header, and owner block; logo bar + footer
+    hidden on phones while watching; mobile bid card shows "Ends in" while
+    live (lobby items show none, by design).
 
 ## 9. Troubleshooting
 

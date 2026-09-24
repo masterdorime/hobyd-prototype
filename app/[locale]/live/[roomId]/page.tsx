@@ -337,6 +337,11 @@ export default function LivePage({
         <section className="min-w-0">
           {isOwner && room && (
             <div className="mb-3 flex flex-col gap-2">
+              {viewers != null && (
+                <p className="tnum text-xs text-white/70">
+                  {viewers} {t("watching")}
+                </p>
+              )}
               {room.category == null ? (
                 <NeuCard className="flex flex-col gap-2 p-4">
                   <p className="text-sm">{t("pickCategory")}</p>
@@ -417,6 +422,11 @@ export default function LivePage({
                   <span className="live-dot" /> LIVE
                 </Badge>
               )}
+              {viewers != null && (
+                <span className="tnum pointer-events-auto rounded-full bg-black/45 px-3 py-1 text-xs text-white backdrop-blur-md">
+                  {viewers} {t("watching")}
+                </span>
+              )}
               {biddingOpen && (
                 <span
                   className={cn(
@@ -466,6 +476,11 @@ export default function LivePage({
                       <Badge tone="live">
                         <span className="live-dot" /> LIVE
                       </Badge>
+                    )}
+                    {viewers != null && (
+                      <span className="tnum rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+                        {viewers} {t("watching")}
+                      </span>
                     )}
                     {biddingOpen && (
                       <span
@@ -744,6 +759,11 @@ export default function LivePage({
                   <p className="tnum text-sm font-semibold text-accent">
                     <CountUp value={active.current_price} />
                   </p>
+                  {biddingOpen && (
+                    <p className={cn("tnum text-xs opacity-80", urgent && "font-semibold text-accent opacity-100")}>
+                      {t("endsIn")}: {Math.floor(left / 1000)} {t("seconds")}
+                    </p>
+                  )}
                 </div>
                 <Badge tone={active.status === "closed" ? "closed" : "muted"}>
                   {active.status}
@@ -790,6 +810,11 @@ export default function LivePage({
                 <Badge tone="live">
                   <span className="live-dot" /> LIVE
                 </Badge>
+              )}
+              {viewers != null && (
+                <span className="tnum rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+                  {viewers} {t("watching")}
+                </span>
               )}
               {biddingOpen && (
                 <span

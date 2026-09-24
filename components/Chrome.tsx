@@ -8,7 +8,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { MotionConfig } from "motion/react";
 import { LocaleToggle } from "@/components/LocaleToggle";
@@ -25,6 +25,10 @@ export function Chrome({
 }) {
   const t = useTranslations();
   const router = useRouter();
+  const pathname = usePathname();
+  // The watch page is fullscreen-first on phones: hide the logo bar and
+  // footer below md so video gets every pixel. BottomNav stays for nav.
+  const isLiveRoute = (pathname ?? "").split("/").includes("live");
   const [email, setEmail] = useState<string | null>(null);
   const [dialog, setDialog] = useState(false);
   useEffect(() => {
@@ -57,7 +61,7 @@ export function Chrome({
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex min-h-dvh flex-col bg-canvas text-white">
-        <header className="chrome-surface sticky top-0 z-40">
+        <header className={`chrome-surface sticky top-0 z-40${isLiveRoute ? " max-md:hidden" : ""}`}>
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <Link
               href={`/${locale}`}
@@ -117,7 +121,7 @@ export function Chrome({
           </div>
         </header>
         <div className="mx-auto w-full max-w-6xl flex-1 pb-20 md:pb-0">{children}</div>
-        <footer className="mt-8 border-t border-white/10">
+        <footer className={`mt-8 border-t border-white/10${isLiveRoute ? " max-md:hidden" : ""}`}>
           <p className="mx-auto w-full max-w-6xl px-4 py-4 text-xs opacity-50 sm:px-6">
             {t("footerNote")}
           </p>

@@ -42,3 +42,13 @@
 - Portrait streams on mobile: unchanged full-bleed stack.
 - Desktop (theater included): untouched. Theater button stays hidden on
   mobile; maximize stays hidden on desktop.
+
+## v2 (2026-09-24): viewer count everywhere, chromeless mobile watch, mobile countdown
+- Viewers pill (existing `viewers` state, display-only): desktop video
+  overlay, theater rail header, fullscreen overlay header, and the owner
+  control block (desktop + mobile seller). Hidden until LiveKit connects.
+- `Chrome` hides header + footer below `md` on `*/live/*` routes (path
+  check, `max-md:hidden`). BottomNav stays, so navigation is never lost.
+- Mobile bottom-stack item card gains the "Ends in" line while bidding is
+  open. Lobby-state items still show no countdown anywhere (no `ends_at`
+  exists before Start bid — by design).
