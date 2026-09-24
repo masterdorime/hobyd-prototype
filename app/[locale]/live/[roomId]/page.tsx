@@ -76,6 +76,21 @@ export default function LivePage({
   const [fsOpen, setFsOpen] = useState(false);
   const [isPortraitHw, setIsPortraitHw] = useState(false);
   const fsRef = useRef<HTMLDivElement>(null);
+  // Stream diagnostics: append ?debug=1 to the URL for a track-event readout
+  // (publisher capture settings, subscriber events, first frames). Used to
+  // pin down device-specific black-video reports; invisible otherwise.
+  const [debug, setDebug] = useState(false);
+  const [dbgLines, setDbgLines] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setDebug(new URLSearchParams(window.location.search).get("debug") === "1");
+    } catch {
+      /* non-browser — stays off */
+    }
+  }, []);
+  function dbg(line: string) {
+    setDbgLines((cur) => [...cur, `${new Date().toLocaleTimeString()}.${String(Date.now() % 1000).padStart(3, "0")} ${line}`].slice(-30));
+  }
   const closeFired = useRef<Set<string>>(new Set());
 
   // Mobile (<md) viewer layout is a separate overlay stack — one matchMedia
@@ -373,6 +388,7 @@ export default function LivePage({
                   previewPortrait={isMobile}
                   onVideoSize={reportSize}
                   onViewers={setViewers}
+                  onEvent={debug ? dbg : undefined}
                 />
               ) : (
                 <div className="glass-panel flex h-64 items-center justify-center">
@@ -388,8 +404,10 @@ export default function LivePage({
                 fill={theater}
                 previewPortrait={isOwner && isMobile}
                 audioMuted={fsOpen}
+                bleed={mobileViewer}
                 onVideoSize={reportSize}
                 onViewers={setViewers}
+                onEvent={debug ? dbg : undefined}
               />
             )}
             {!theater && !isOwner && (
@@ -807,6 +825,7 @@ export default function LivePage({
                 roomId={roomId}
                 onVideoSize={reportSize}
                 onViewers={setViewers}
+                onEvent={debug ? dbg : undefined}
               />
             </div>
             <div className="flex w-[46%] max-w-72 shrink-0 flex-col gap-2 overflow-y-auto">
@@ -852,6 +871,13 @@ export default function LivePage({
               )}
             </div>
           </div>
+        </div>
+      )}
+      {debug && dbgLines.length > 0 && (
+        <div className="tnum fixed bottom-1 left-1 z-[70] max-h-40 w-64 overflow-y-auto rounded-lg bg-black/80 p-2 font-mono text-[10px] leading-snug text-emerald-300">
+          {dbgLines.map((l, i) => (
+            <p key={i}>{l}</p>
+          ))}
         </div>
       )}
     </main>

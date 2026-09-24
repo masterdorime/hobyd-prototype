@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import {
   Room,
   Track,
+  TrackEvent,
+  VideoPresets,
   createLocalAudioTrack,
   createLocalVideoTrack,
   type LocalAudioTrack,
@@ -37,8 +39,10 @@ export function LiveVideo({
   fill = false,
   previewPortrait = false,
   audioMuted = false,
+  bleed = false,
   onVideoSize,
   onViewers,
+  onEvent,
 }: {
   roomId: string;
   canPublish?: boolean;
@@ -46,8 +50,10 @@ export function LiveVideo({
   fill?: boolean;
   previewPortrait?: boolean;
   audioMuted?: boolean;
+  bleed?: boolean;
   onVideoSize?: (w: number, h: number) => void;
   onViewers?: (n: number) => void;
+  onEvent?: (line: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const t = useTranslations();
@@ -64,6 +70,9 @@ export function LiveVideo({
   const reportSize = (w: number, h: number) => sizeRef.current?.(w, h);
   const viewRef = useRef(onViewers);
   viewRef.current = onViewers;
+  const eventRef = useRef(onEvent);
+  eventRef.current = onEvent;
+  const emit = (line: string) => eventRef.current?.(line);
   // Viewer audio elements (attached remote tracks). The page mutes the
   // background instance while a second instance plays in the fullscreen
   // overlay — two audible copies must never overlap.
@@ -81,6 +90,10 @@ export function LiveVideo({
     ref.current.appendChild(el);
     if (video) {
       watchVideoSize(el, reportSize);
+      const v = el as HTMLVideoElement;
+      const onPlay = () => emit(`first-frame ${v.videoWidth}x${v.videoHeight}`);
+      v.addEventListener("playing", onPlay, { once: true });
+      if (v.readyState >= 2) emit(`frame-ready ${v.videoWidth}x${v.videoHeight}`);
     } else {
       el.muted = mutedRef.current;
       audioEls.current.push(el);
@@ -114,12 +127,18 @@ export function LiveVideo({
         // NOTE: audio must be attached too — subscribing without attach
         // meant remote mic audio arrived but never played (silent viewers).
         room.on("trackSubscribed", (track) => {
+          emit(`subscribed ${track.kind} muted=${track.isMuted}`);
+          if (track.kind === Track.Kind.Video) {
+            track.on(TrackEvent.Muted, () => emit("remote video muted"));
+            track.on(TrackEvent.Unmuted, () => emit("remote video unmuted"));
+          }
           if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio)
             attachViewable(track.attach(), track.kind === Track.Kind.Video);
         });
         await room.connect(t.url, t.token);
         if (cancelled) return;
         report();
+        emit(`joined, ${room.remoteParticipants.size} remote`);
         room.remoteParticipants.forEach((p) =>
           p.trackPublications.forEach((pub) => {
             const tr = pub.track;
@@ -145,8 +164,11 @@ export function LiveVideo({
     setFailure(null);
     setPreviewReady(false);
     (async () => {
+      // Capture capped at 720p: phone cameras default to 1080p+, which some
+      // subscribing phones cannot decode (black video on mobile→mobile while
+      // desktops power through). 720p is plenty for live-shopping cards.
       const [video, audio] = await Promise.all([
-        createLocalVideoTrack().catch((e) => ({ error: e as unknown })),
+        createLocalVideoTrack({ resolution: VideoPresets.h720 }).catch((e) => ({ error: e as unknown })),
         createLocalAudioTrack().catch((e) => ({ error: e as unknown })),
       ]);
       if (cancelled) {
@@ -156,6 +178,10 @@ export function LiveVideo({
       }
       const v = "error" in video ? null : video;
       const a = "error" in audio ? null : audio;
+      if (v) {
+        const s = v.mediaStreamTrack.getSettings();
+        emit(`capture ${s.width}x${s.height}@${s.frameRate ?? "?"}fps facing=${s.facingMode ?? "?"}`);
+      }
       if (!v && !a) {
         setFailure(classifyMediaError(
           "error" in video ? video.error : (audio as { error: unknown }).error,
@@ -196,9 +222,11 @@ export function LiveVideo({
         "w-full overflow-hidden bg-black [&_video]:h-full [&_video]:w-full",
         contain
           ? "mx-auto aspect-[9/16] h-full shrink-0 [&_video]:object-contain"
-          : fill
-            ? "h-full w-full min-w-0 flex-1"
-            : "rounded-lg aspect-video",
+          : bleed
+            ? "h-full w-full [&_video]:object-cover"
+            : fill
+              ? "h-full w-full min-w-0 flex-1"
+              : "rounded-lg aspect-video",
       )}>
         {down && <p className="p-4 text-sm text-white">{t("reconnecting")}</p>}
       </div>

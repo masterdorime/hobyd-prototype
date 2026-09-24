@@ -242,6 +242,9 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
     maximize → true fullscreen with bid card top-right and chat
     bottom-right, rotate prompt in portrait; open/close never drops the
     underlying stream.
+24. **Mobile video fix** — publish capped at 720p (phones decode any
+    stream); viewer video is full-bleed cover on phones; `?debug=1` on a
+    live URL shows the track-event readout for black-video repros.
 
 ## 9. Troubleshooting
 
@@ -269,6 +272,11 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
 - Maximize does nothing on an older iPhone → pre-16.4 iOS Safari has no
   element Fullscreen API: the app still opens the full-viewport overlay
   (same layout, minus OS-level fullscreen). Rotate prompt included.
+- **Mobile viewer sees chat but black video** → open the same live URL with
+  `?debug=1`: the readout shows publisher capture (`WxH@fps`) and subscriber
+  events (`subscribed`, `first-frame`). No `first-frame` after `subscribed`
+  = decoder/codec issue (report the capture line); `remote video muted` =
+  publisher-side mute.
 - **Pre-migration rooms have no owner.** Rooms created before the livestream
   migration have `owner_id = null` (subscriber-only, unmanageable — no Go
   Live / End controls). Assign an owner by id as an admin:
