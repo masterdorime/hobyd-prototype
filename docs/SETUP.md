@@ -165,7 +165,7 @@ Seller flow (all UI, no SQL needed):
    item title; rename it later from the sell page or the settings route.)
 2. On the live page, set a **thumbnail** (file or camera — auto-cropped to
    16:9, like all uploaded photos) and publish your **camera** (preview
-   first, then Start camera).
+   first, then Start camera; on phones the preview is tall portrait).
 3. Tap **Start Stream**. If the room still has no category, pick one
    (Sneakers / TCG / Vintage Clothing / Electronics) — bidding stays
    closed until then.
@@ -237,6 +237,11 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
     lobby/item card exactly; pick "Other" category end-to-end (dialog,
     gate, lobby tab); open Go Live from a phone — dialog is fully visible
     and scrollable, never clipped by the bottom nav.
+23. **Mobile portrait + landscape fullscreen** — phone seller streams with
+    a tall portrait preview; phone viewer on a landscape stream taps
+    maximize → true fullscreen with bid card top-right and chat
+    bottom-right, rotate prompt in portrait; open/close never drops the
+    underlying stream.
 
 ## 9. Troubleshooting
 
@@ -261,6 +266,9 @@ Direct links: lobby (`/id`), live page `/id/live/<room-id>`.
   (§12) erases `preview` rooms older than 10 min that never went live, and
   ends participant-less `live` rooms past the same TTL. If you were
   mid-setup, just Go Live again.
+- Maximize does nothing on an older iPhone → pre-16.4 iOS Safari has no
+  element Fullscreen API: the app still opens the full-viewport overlay
+  (same layout, minus OS-level fullscreen). Rotate prompt included.
 - **Pre-migration rooms have no owner.** Rooms created before the livestream
   migration have `owner_id = null` (subscriber-only, unmanageable — no Go
   Live / End controls). Assign an owner by id as an admin:

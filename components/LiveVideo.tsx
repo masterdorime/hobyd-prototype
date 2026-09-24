@@ -35,6 +35,8 @@ export function LiveVideo({
   canPublish = false,
   contain = false,
   fill = false,
+  previewPortrait = false,
+  audioMuted = false,
   onVideoSize,
   onViewers,
 }: {
@@ -42,6 +44,8 @@ export function LiveVideo({
   canPublish?: boolean;
   contain?: boolean;
   fill?: boolean;
+  previewPortrait?: boolean;
+  audioMuted?: boolean;
   onVideoSize?: (w: number, h: number) => void;
   onViewers?: (n: number) => void;
 }) {
@@ -60,6 +64,28 @@ export function LiveVideo({
   const reportSize = (w: number, h: number) => sizeRef.current?.(w, h);
   const viewRef = useRef(onViewers);
   viewRef.current = onViewers;
+  // Viewer audio elements (attached remote tracks). The page mutes the
+  // background instance while a second instance plays in the fullscreen
+  // overlay — two audible copies must never overlap.
+  const mutedRef = useRef(audioMuted);
+  mutedRef.current = audioMuted;
+  const audioEls = useRef<HTMLMediaElement[]>([]);
+  useEffect(() => {
+    audioEls.current.forEach((el) => {
+      el.muted = audioMuted;
+    });
+  }, [audioMuted]);
+
+  function attachViewable(el: HTMLMediaElement, video: boolean) {
+    if (!ref.current) return;
+    ref.current.appendChild(el);
+    if (video) {
+      watchVideoSize(el, reportSize);
+    } else {
+      el.muted = mutedRef.current;
+      audioEls.current.push(el);
+    }
+  }
   const [attempt, setAttempt] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
   const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | null>(null);
@@ -88,12 +114,8 @@ export function LiveVideo({
         // NOTE: audio must be attached too — subscribing without attach
         // meant remote mic audio arrived but never played (silent viewers).
         room.on("trackSubscribed", (track) => {
-          if (!ref.current) return;
-          if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio) {
-            const el = track.attach();
-            ref.current.appendChild(el);
-            if (track.kind === Track.Kind.Video) watchVideoSize(el, reportSize);
-          }
+          if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio)
+            attachViewable(track.attach(), track.kind === Track.Kind.Video);
         });
         await room.connect(t.url, t.token);
         if (cancelled) return;
@@ -101,17 +123,15 @@ export function LiveVideo({
         room.remoteParticipants.forEach((p) =>
           p.trackPublications.forEach((pub) => {
             const tr = pub.track;
-            if (!tr || !ref.current) return;
-            if (tr.kind === Track.Kind.Video || tr.kind === Track.Kind.Audio) {
-              const el = tr.attach();
-              ref.current.appendChild(el);
-              if (tr.kind === Track.Kind.Video) watchVideoSize(el, reportSize);
-            }
+            if (!tr) return;
+            if (tr.kind === Track.Kind.Video || tr.kind === Track.Kind.Audio)
+              attachViewable(tr.attach(), tr.kind === Track.Kind.Video);
           }));
       } catch { if (!cancelled) setDown(true); }
     })();
     return () => {
       cancelled = true;
+      audioEls.current = [];
       room?.disconnect();
     };
   }, [roomId, canPublish]);
@@ -242,6 +262,7 @@ export function LiveVideo({
           "w-full [&_video]:h-full [&_video]:w-full",
           contain ? "h-full [&_video]:object-contain"
           : fill ? "min-h-0 flex-1 [&_video]:object-cover"
+          : previewPortrait ? "mx-auto aspect-[9/16] max-h-[55dvh] w-auto [&_video]:object-cover"
           : "aspect-video [&_video]:object-cover",
         )} />
         <div className="pointer-events-none absolute left-3 top-3">

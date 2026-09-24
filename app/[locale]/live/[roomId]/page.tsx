@@ -72,6 +72,10 @@ export default function LivePage({
   const [acting, setActing] = useState(false);
   const [theater, setTheater] = useState(false);
   const [vidPortrait, setVidPortrait] = useState(false);
+  const [vidKnown, setVidKnown] = useState(false);
+  const [fsOpen, setFsOpen] = useState(false);
+  const [isPortraitHw, setIsPortraitHw] = useState(false);
+  const fsRef = useRef<HTMLDivElement>(null);
   const closeFired = useRef<Set<string>>(new Set());
 
   // Mobile (<md) viewer layout is a separate overlay stack — one matchMedia
@@ -85,7 +89,50 @@ export default function LivePage({
   }, []);
 
   // A new room means a new stream — drop the previous orientation verdict.
-  useEffect(() => { setVidPortrait(false); }, [roomId]);
+  useEffect(() => { setVidPortrait(false); setVidKnown(false); setFsOpen(false); }, [roomId]);
+
+  function reportSize(w: number, h: number) {
+    setVidPortrait(h > w);
+    setVidKnown(true);
+  }
+
+  // True-fullscreen landscape overlay (mobile viewers). ESC / OS gesture
+  // exits natively — resync state so the overlay unmounts too.
+  useEffect(() => {
+    const onFs = () => {
+      if (!document.fullscreenElement) setFsOpen(false);
+    };
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const f = () => setIsPortraitHw(mq.matches);
+    f();
+    mq.addEventListener("change", f);
+    return () => mq.removeEventListener("change", f);
+  }, []);
+  useEffect(() => {
+    if (!fsOpen) return;
+    const el = fsRef.current as (HTMLDivElement & {
+      webkitRequestFullscreen?: () => void;
+    }) | null;
+    try {
+      if (el?.requestFullscreen) void el.requestFullscreen().catch(() => {});
+      else el?.webkitRequestFullscreen?.();
+    } catch {
+      /* older iOS: the fixed overlay below still covers the viewport */
+    }
+  }, [fsOpen]);
+
+  function closeFs() {
+    try {
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    } catch {
+      /* already exited */
+    }
+    setFsOpen(false);
+  }
 
   const active = items.find((i) => i.id === activeId) ?? null;
 
@@ -323,7 +370,8 @@ export default function LivePage({
                   canPublish
                   contain={vidPortrait && !isMobile}
                   fill={theater}
-                  onVideoSize={(w, h) => setVidPortrait(h > w)}
+                  previewPortrait={isMobile}
+                  onVideoSize={reportSize}
                   onViewers={setViewers}
                 />
               ) : (
@@ -338,11 +386,13 @@ export default function LivePage({
                 canPublish={isOwner}
                 contain={vidPortrait && !isMobile}
                 fill={theater}
-                onVideoSize={(w, h) => setVidPortrait(h > w)}
+                previewPortrait={isOwner && isMobile}
+                audioMuted={fsOpen}
+                onVideoSize={reportSize}
                 onViewers={setViewers}
               />
             )}
-            {!theater && (
+            {!theater && !isOwner && (
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
               {roomStatus === "live" && !mobileViewer && (
                 <Badge tone="live">
@@ -360,6 +410,20 @@ export default function LivePage({
                 </span>
               )}
             </div>
+            )}
+            {mobileViewer && vidKnown && !vidPortrait && roomStatus === "live" && !fsOpen && (
+              <div className="absolute bottom-3 right-3">
+                <button
+                  type="button"
+                  onClick={() => setFsOpen(true)}
+                  aria-label={t("maximize")}
+                  className="pressable rounded-full border border-white/15 bg-black/45 p-2.5 text-white backdrop-blur-md"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" />
+                  </svg>
+                </button>
+              </div>
             )}
             {room && roomStatus !== "ended" && !isMobile && !theater && (
               <div className="absolute bottom-0 right-0 p-3">
@@ -646,7 +710,7 @@ export default function LivePage({
             className="fixed inset-x-0 z-20 flex flex-col gap-2 p-3"
             style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)" }}
           >
-            {loaded && <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="overlay" />}
+            {loaded && !fsOpen && <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="overlay" />}
             {active?.status === "closed" && <WinnerPill itemId={active.id} />}
             {active && (
               <div className="glass-panel flex items-center gap-3 rounded-2xl p-2.5">
@@ -693,6 +757,102 @@ export default function LivePage({
             )}
           </div>
         </>
+      )}
+      {fsOpen && (
+        <div
+          ref={fsRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("maximize")}
+          className="fixed inset-0 z-[60] flex flex-col gap-2 bg-black p-3"
+        >
+          <div className="flex shrink-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              {roomStatus === "live" && (
+                <Badge tone="live">
+                  <span className="live-dot" /> LIVE
+                </Badge>
+              )}
+              {biddingOpen && (
+                <span
+                  className={cn(
+                    "tnum rounded-full bg-white/10 px-3 py-1 text-xs",
+                    urgent ? "font-semibold text-accent" : "text-white",
+                  )}
+                >
+                  {m}:{s}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={closeFs}
+              aria-label={t("close")}
+              className="pressable shrink-0 rounded-full border border-white/15 bg-black/45 p-2 text-white"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                <path d="M2 2l10 10M12 2L2 12" />
+              </svg>
+            </button>
+          </div>
+          {isPortraitHw && (
+            <p className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-center text-xs text-white/90">
+              {t("rotatePhone")}
+            </p>
+          )}
+          <div className="flex min-h-0 flex-1 gap-2">
+            <div className="min-w-0 flex-1 self-center">
+              <LiveVideo
+                key="viewer-fs"
+                roomId={roomId}
+                onVideoSize={reportSize}
+                onViewers={setViewers}
+              />
+            </div>
+            <div className="flex w-[46%] max-w-72 shrink-0 flex-col gap-2 overflow-y-auto">
+              {active && (
+                <div className="glass-panel flex items-center gap-2 rounded-2xl p-2">
+                  {active.img_url && (
+                    <img
+                      src={active.img_url}
+                      alt=""
+                      className="aspect-video h-10 shrink-0 rounded-lg object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <p className="truncate text-xs font-semibold text-white">{active.title}</p>
+                    <p className="tnum text-xs font-semibold text-accent">
+                      <CountUp value={active.current_price} />
+                    </p>
+                  </div>
+                </div>
+              )}
+              {loaded && active && (
+                active.status === "closed" ? (
+                  <Link
+                    href={`/${locale}/win/${active.id}`}
+                    className="pressable shrink-0 rounded-full bg-accent px-3 py-1.5 text-center text-xs font-semibold text-accent-ink"
+                  >
+                    {t("seeResult")}
+                  </Link>
+                ) : !biddingOpen ? (
+                  <p className="shrink-0 rounded-xl bg-white/10 px-2 py-1.5 text-center text-xs text-white/80">
+                    {t("bidNotStarted")}
+                  </p>
+                ) : (
+                  <div className="glass-panel shrink-0 rounded-2xl p-2">
+                    <BidForm current={active.current_price} onBid={placeBid} />
+                  </div>
+                )
+              )}
+              {loaded && (
+                <div className="glass-panel flex min-h-48 flex-1 flex-col p-2">
+                  <ChatPanel roomId={roomId} roomStatus={roomStatus} variant="panel" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
