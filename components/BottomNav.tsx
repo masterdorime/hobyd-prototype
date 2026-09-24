@@ -54,9 +54,11 @@ export function BottomNav({ locale }: { locale: string }) {
   const path = pathname ?? "";
   const discoverHref = `/${locale}`;
   const sellHref = `/${locale}/sell`;
+  const salesHref = `/${locale}/sales`;
   const loginHref = `/${locale}/login`;
   const isDiscover = path === discoverHref;
   const isSell = path === sellHref || path.startsWith(`${sellHref}/`);
+  const isSales = path === salesHref || path.startsWith(`${salesHref}/`);
   const isLogin = path === loginHref || path.startsWith(`${loginHref}/`);
 
   return (
@@ -92,6 +94,13 @@ export function BottomNav({ locale }: { locale: string }) {
           className={itemCls(isSell)}
         >
           Sell
+        </Link>
+        <Link
+          href={salesHref}
+          aria-current={isSales ? "page" : undefined}
+          className={itemCls(isSales)}
+        >
+          {t("sales")}
         </Link>
         {email ? (
           <button
